@@ -1,102 +1,91 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package Model;
 
-import java.time.LocalDateTime;
+import java.sql.Timestamp;
 
 /**
+ * Model ánh xạ bảng USER_MISSION.
  *
- * @author 84941
+ * status: IN_PROGRESS | COMPLETED | CLAIMED
+ *
+ * Lưu ý quan trọng về check-in (QĐ13):
+ *   - Trường claimedAt được tái sử dụng để lưu thời điểm check-in gần nhất.
+ *   - MissionDAO.checkIn() so sánh claimedAt với ngày hôm nay / hôm qua
+ *     để xác định streak có tiếp tục hay bị reset về 1.
  */
 public class UserMission {
-    private int userMissionId;      
-    private int userId;            
-    private int missionId;         
-    private String status;         
-    private int progress;           
-    private LocalDateTime completedAt; 
-    private LocalDateTime claimedAt;  
-    private int isDeleted;
 
-    public UserMission() {
-    }
+    private int       userMissionId;
+    private int       userId;
+    private int       missionId;
+    private String    status;         // IN_PROGRESS | COMPLETED | CLAIMED
+    private int       progress;       // Tiến độ hiện tại / streak điểm danh
+    private Timestamp completedAt;
+    private Timestamp claimedAt;      // Với DAILY: dùng làm mốc check-in gần nhất
+    private int       isDeleted;
 
-    public UserMission(int userMissionId, int userId, int missionId, String status, int progress, LocalDateTime completedAt, LocalDateTime claimedAt, int isDeleted) {
+    // ── Thuộc tính mở rộng (không ánh xạ DB — dùng khi JOIN với MISSIONS) ──
+    private Mission mission;          // Gắn vào khi query JOIN, không lưu DB
+
+    public UserMission() {}
+
+    public UserMission(int userMissionId, int userId, int missionId,
+                       String status, int progress,
+                       Timestamp completedAt, Timestamp claimedAt, int isDeleted) {
         this.userMissionId = userMissionId;
-        this.userId = userId;
-        this.missionId = missionId;
-        this.status = status;
-        this.progress = progress;
-        this.completedAt = completedAt;
-        this.claimedAt = claimedAt;
-        this.isDeleted = isDeleted;
+        this.userId        = userId;
+        this.missionId     = missionId;
+        this.status        = status;
+        this.progress      = progress;
+        this.completedAt   = completedAt;
+        this.claimedAt     = claimedAt;
+        this.isDeleted     = isDeleted;
     }
 
-    public int getUserMissionId() {
-        return userMissionId;
-    }
+    // ── Getters & Setters ────────────────────────────────────────────────────
 
-    public void setUserMissionId(int userMissionId) {
-        this.userMissionId = userMissionId;
-    }
+    public int getUserMissionId()                        { return userMissionId; }
+    public void setUserMissionId(int userMissionId)      { this.userMissionId = userMissionId; }
 
-    public int getUserId() {
-        return userId;
-    }
+    public int getUserId()                  { return userId; }
+    public void setUserId(int userId)       { this.userId = userId; }
 
-    public void setUserId(int userId) {
-        this.userId = userId;
-    }
+    public int getMissionId()               { return missionId; }
+    public void setMissionId(int missionId) { this.missionId = missionId; }
 
-    public int getMissionId() {
-        return missionId;
-    }
+    public String getStatus()               { return status; }
+    public void setStatus(String status)    { this.status = status; }
 
-    public void setMissionId(int missionId) {
-        this.missionId = missionId;
-    }
+    public int getProgress()                { return progress; }
+    public void setProgress(int progress)   { this.progress = progress; }
 
-    public String getStatus() {
-        return status;
-    }
+    public Timestamp getCompletedAt()               { return completedAt; }
+    public void setCompletedAt(Timestamp completedAt){ this.completedAt = completedAt; }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
+    public Timestamp getClaimedAt()                 { return claimedAt; }
+    public void setClaimedAt(Timestamp claimedAt)   { this.claimedAt = claimedAt; }
 
-    public int getProgress() {
-        return progress;
-    }
+    public int getIsDeleted()                  { return isDeleted; }
+    public void setIsDeleted(int isDeleted)    { this.isDeleted = isDeleted; }
 
-    public void setProgress(int progress) {
-        this.progress = progress;
-    }
+    public Mission getMission()                { return mission; }
+    public void setMission(Mission mission)    { this.mission = mission; }
 
-    public LocalDateTime getCompletedAt() {
-        return completedAt;
-    }
+    // ── Helper ───────────────────────────────────────────────────────────────
 
-    public void setCompletedAt(LocalDateTime completedAt) {
-        this.completedAt = completedAt;
-    }
+    /** Trả về true nếu user đã nhận thưởng cho nhiệm vụ này */
+    public boolean isClaimed()    { return "CLAIMED".equals(status); }
 
-    public LocalDateTime getClaimedAt() {
-        return claimedAt;
-    }
+    /** Trả về true nếu nhiệm vụ đã hoàn thành nhưng chưa nhận thưởng */
+    public boolean isCompleted()  { return "COMPLETED".equals(status); }
 
-    public void setClaimedAt(LocalDateTime claimedAt) {
-        this.claimedAt = claimedAt;
-    }
+    /** Trả về true nếu đang còn tiến hành */
+    public boolean isInProgress() { return "IN_PROGRESS".equals(status); }
 
-    public int getIsDeleted() {
-        return isDeleted;
+    @Override
+    public String toString() {
+        return "UserMission{userId=" + userId +
+               ", missionId=" + missionId +
+               ", progress=" + progress +
+               ", status='" + status + "'}";
     }
-
-    public void setIsDeleted(int isDeleted) {
-        this.isDeleted = isDeleted;
-    }
-    
-    
 }

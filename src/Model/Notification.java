@@ -1,112 +1,77 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package Model;
 
-import java.time.LocalDateTime;
+import java.sql.Timestamp;
 
 /**
- *
- * @author 84941
+ * Model ánh xạ bảng NOTIFICATION.
+ * body kiểu CLOB trong DB → dùng String trong Java (đủ với text thông thường).
  */
 public class Notification {
-    private int notificationId;     
-    private int userId;           
-    private String title;           
-    private String body;           
-    private String type;            
-    private int isRead;             
-    private LocalDateTime sentAt;  
-    private LocalDateTime readAt;   
-    private int isDeleted;
 
-    public Notification() {
-    }
+    private int       notificationId;
+    private int       userId;
+    private String    title;
+    private String    body;        // CLOB trong DB
+    private String    type;        // Ví dụ: MISSION | TRANSACTION | SYSTEM | ...
+    private int       isRead;      // 0 = chưa đọc, 1 = đã đọc
+    private Timestamp sentAt;
+    private Timestamp readAt;      // null nếu chưa đọc
+    private int       isDeleted;
 
-    public Notification(int notificationId, int userId, String title, String body, String type, int isRead, LocalDateTime sentAt, LocalDateTime readAt, int isDeleted) {
+    public Notification() {}
+
+    public Notification(int notificationId, int userId, String title,
+                        String body, String type, int isRead,
+                        Timestamp sentAt, Timestamp readAt, int isDeleted) {
         this.notificationId = notificationId;
-        this.userId = userId;
-        this.title = title;
-        this.body = body;
-        this.type = type;
-        this.isRead = isRead;
-        this.sentAt = sentAt;
-        this.readAt = readAt;
-        this.isDeleted = isDeleted;
+        this.userId         = userId;
+        this.title          = title;
+        this.body           = body;
+        this.type           = type;
+        this.isRead         = isRead;
+        this.sentAt         = sentAt;
+        this.readAt         = readAt;
+        this.isDeleted      = isDeleted;
     }
 
-    public int getNotificationId() {
-        return notificationId;
-    }
+    // ── Getters & Setters ────────────────────────────────────────────────────
 
-    public void setNotificationId(int notificationId) {
-        this.notificationId = notificationId;
-    }
+    public int getNotificationId()                           { return notificationId; }
+    public void setNotificationId(int notificationId)        { this.notificationId = notificationId; }
 
-    public int getUserId() {
-        return userId;
-    }
+    public int getUserId()                  { return userId; }
+    public void setUserId(int userId)       { this.userId = userId; }
 
-    public void setUserId(int userId) {
-        this.userId = userId;
-    }
+    public String getTitle()                { return title; }
+    public void setTitle(String title)      { this.title = title; }
 
-    public String getTitle() {
-        return title;
-    }
+    public String getBody()                 { return body; }
+    public void setBody(String body)        { this.body = body; }
 
-    public void setTitle(String title) {
-        this.title = title;
-    }
+    public String getType()                 { return type; }
+    public void setType(String type)        { this.type = type; }
 
-    public String getBody() {
-        return body;
-    }
+    public int getIsRead()                  { return isRead; }
+    public void setIsRead(int isRead)       { this.isRead = isRead; }
 
-    public void setBody(String body) {
-        this.body = body;
-    }
+    public Timestamp getSentAt()            { return sentAt; }
+    public void setSentAt(Timestamp sentAt) { this.sentAt = sentAt; }
 
-    public String getType() {
-        return type;
-    }
+    public Timestamp getReadAt()             { return readAt; }
+    public void setReadAt(Timestamp readAt)  { this.readAt = readAt; }
 
-    public void setType(String type) {
-        this.type = type;
-    }
+    public int getIsDeleted()               { return isDeleted; }
+    public void setIsDeleted(int isDeleted) { this.isDeleted = isDeleted; }
 
-    public int getIsRead() {
-        return isRead;
-    }
+    // ── Helper ───────────────────────────────────────────────────────────────
 
-    public void setIsRead(int isRead) {
-        this.isRead = isRead;
-    }
+    public boolean isUnread() { return isRead == 0; }
 
-    public LocalDateTime getSentAt() {
-        return sentAt;
+    @Override
+    public String toString() {
+        return "Notification{id=" + notificationId +
+               ", userId=" + userId +
+               ", title='" + title + "'" +
+               ", isRead=" + isRead + "}";
     }
-
-    public void setSentAt(LocalDateTime sentAt) {
-        this.sentAt = sentAt;
-    }
-
-    public LocalDateTime getReadAt() {
-        return readAt;
-    }
-
-    public void setReadAt(LocalDateTime readAt) {
-        this.readAt = readAt;
-    }
-
-    public int getIsDeleted() {
-        return isDeleted;
-    }
-
-    public void setIsDeleted(int isDeleted) {
-        this.isDeleted = isDeleted;
-    }
-    
-    
 }
