@@ -1,78 +1,51 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package Model;
 
+import java.math.BigDecimal;
+
 /**
- *
- * @author 84941
+ * Model ánh xạ bảng WALLET.
+ * Dùng BigDecimal cho available_balance và locked_balance
+ * để khớp với kiểu NUMBER(18,2) trong Oracle DB.
  */
 public class Wallet {
     private int walletId;
     private int userId;
-    private int availableBalance;
-    private int lockedBalance;
+    private BigDecimal availableBalance;
+    private BigDecimal lockedBalance;
     private String status;
     private int isDeleted;
-    
+
     public Wallet() {}
 
-    public Wallet(int walletId, int userId, int availableBalance, int lockedBalance, String status, int isDeleted) {
-        this.walletId = walletId;
-        this.userId = userId;
-        this.availableBalance = availableBalance;
-        this.lockedBalance = lockedBalance;
-        this.status = status;
-        this.isDeleted = isDeleted;
+    public Wallet(int walletId, int userId, BigDecimal availableBalance,
+                  BigDecimal lockedBalance, String status, int isDeleted) {
+        this.walletId          = walletId;
+        this.userId            = userId;
+        this.availableBalance  = availableBalance;
+        this.lockedBalance     = lockedBalance;
+        this.status            = status;
+        this.isDeleted         = isDeleted;
     }
 
-    public int getWalletId() {
-        return walletId;
-    }
+    public int getWalletId() { return walletId; }
+    public void setWalletId(int walletId) { this.walletId = walletId; }
 
-    public void setWalletId(int walletId) {
-        this.walletId = walletId;
-    }
+    public int getUserId() { return userId; }
+    public void setUserId(int userId) { this.userId = userId; }
 
-    public int getUserId() {
-        return userId;
-    }
-
-    public void setUserId(int userId) {
-        this.userId = userId;
-    }
-
-    public int getAvailableBalance() {
-        return availableBalance;
-    }
-
-    public void setAvailableBalance(int availableBalance) {
+    public BigDecimal getAvailableBalance() { return availableBalance; }
+    public void setAvailableBalance(BigDecimal availableBalance) {
         this.availableBalance = availableBalance;
     }
 
-    public int getLockedBalance() {
-        return lockedBalance;
-    }
-
-    public void setLockedBalance(int lockedBalance) {
+    public BigDecimal getLockedBalance() { return lockedBalance; }
+    public void setLockedBalance(BigDecimal lockedBalance) {
         this.lockedBalance = lockedBalance;
     }
 
-    public String getStatus() {
-        return status;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public int getIsDeleted() {
-        return isDeleted;
-    }
-
-    public void setIsDeleted(int isDeleted) {
-        this.isDeleted = isDeleted;
-    }
-    
+    public int getIsDeleted() { return isDeleted; }
+    public void setIsDeleted(int isDeleted) { this.isDeleted = isDeleted; }
 }

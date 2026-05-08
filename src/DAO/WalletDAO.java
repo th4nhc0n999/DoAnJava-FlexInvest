@@ -94,8 +94,9 @@ public class WalletDAO extends BaseDAO<Wallet> {
         Wallet w = new Wallet();
         w.setWalletId(rs.getInt("wallet_id"));
         w.setUserId(rs.getInt("user_id"));
-        w.setAvailableBalance(rs.getInt("available_balance"));
-        w.setLockedBalance(rs.getInt("locked_balance"));
+        // FIX: dùng getBigDecimal để khớp với NUMBER(18,2) trong Oracle
+        w.setAvailableBalance(rs.getBigDecimal("available_balance"));
+        w.setLockedBalance(rs.getBigDecimal("locked_balance"));
         w.setStatus(rs.getString("status"));
         w.setIsDeleted(rs.getInt("is_deleted"));
         return w;
@@ -133,10 +134,11 @@ public class WalletDAO extends BaseDAO<Wallet> {
         );
     }
 
-    /** Số dư khả dụng. */
-    public int getBalance(int userId) {
+    /** Số dư khả dụng dưới dạng BigDecimal (khớp NUMBER(18,2)). */
+    public BigDecimal getBalance(int userId) {
         Wallet w = getByUserId(userId);
-        return (w != null) ? w.getAvailableBalance() : 0;
+        return (w != null && w.getAvailableBalance() != null)
+               ? w.getAvailableBalance() : BigDecimal.ZERO;
     }
 
     public boolean insertWithConnection(Connection con, int userId) throws SQLException {

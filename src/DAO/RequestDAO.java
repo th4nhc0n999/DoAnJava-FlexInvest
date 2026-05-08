@@ -45,7 +45,9 @@ public class RequestDAO extends BaseDAO<Deposit> {
         d.setReceivingAccount(rs.getString("receiving_account"));
         d.setQrString(rs.getString("qr_string"));
         d.setBankTransRef(rs.getString("bank_trans_ref"));
-        d.setExpiredAt(rs.getTimestamp("expired_at").toLocalDateTime());
+        // FIX: expired_at có thể NULL — kiểm tra trước khi gọi toLocalDateTime()
+        Timestamp expTs = rs.getTimestamp("expired_at");
+        d.setExpiredAt(expTs != null ? expTs.toLocalDateTime() : null);
         d.setIsDeleted(rs.getInt("is_deleted"));
         return d;
     }
@@ -57,8 +59,12 @@ public class RequestDAO extends BaseDAO<Deposit> {
         w.setBankAccountId(rs.getInt("bank_account_id"));
         w.setFee(rs.getBigDecimal("fee"));
         w.setStatus(rs.getString("status"));
-        w.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
-        w.setProcessedAt(rs.getTimestamp("processed_at").toLocalDateTime());
+        // FIX: created_at có thể NULL — null-safe
+        Timestamp createdTs = rs.getTimestamp("created_at");
+        w.setCreatedAt(createdTs != null ? createdTs.toLocalDateTime() : null);
+        // FIX: processed_at được định nghĩa NULL trong schema — phải kiểm tra null
+        Timestamp processedTs = rs.getTimestamp("processed_at");
+        w.setProcessedAt(processedTs != null ? processedTs.toLocalDateTime() : null);
         w.setNote(rs.getString("note"));
         w.setIsDeleted(rs.getInt("is_deleted"));
         return w;
@@ -306,7 +312,7 @@ public class RequestDAO extends BaseDAO<Deposit> {
         return queryOne("SELECT * FROM DEPOSIT WHERE deposit_id = ? AND is_deleted = 0", depositId);
     }
 
-    /** Lấy tất cả lệnh nạp đang PENDING (admin xử lý). */
+    /** Tất cả lệnh nạp đang PENDING (admin xử lý). */
     public List<Deposit> findPendingDeposits() {
         String sql = """
             SELECT d.* FROM DEPOSIT d
@@ -357,8 +363,7 @@ public class RequestDAO extends BaseDAO<Deposit> {
     }
 
     /**
-     * Tìm lệnh rút / nạp liên quan đến một khoản đầu tư (PAYOUT → TRANSACTION → WITHDRAW).
-     * Dùng khi cần tra lệnh rút phát sinh từ tất toán đầu tư.
+     * Tìm lệnh rút / nạp liên quan đến một khoản đầu tư.
      */
     public List<Withdraw> findByInvestment(int investmentId) {
         String sql = """
