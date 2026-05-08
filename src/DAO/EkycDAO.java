@@ -31,12 +31,12 @@ public class EkycDAO {
         rs.getString("FRONT_IMAGE_URL"),
         rs.getString("BACK_IMAGE_URL"),
         rs.getString("FACE_IMAGE_URL"),
-        rs.getInt("MATCH_SCORE"),
+        rs.getBigDecimal("MATCH_SCORE"),
         rs.getString("VERIFIED_STATUS"),
         rs.getString("NOTE"),
-        rs.getTimestamp("VERIFIED_AT") != null ? rs.getTimestamp("VERIFIED_AT").toLocalDateTime() : null,
-        rs.getTimestamp("CREATED_AT") != null ? rs.getTimestamp("CREATED_AT").toLocalDateTime() : null,
-        rs.getTimestamp("UPDATED_AT") != null ? rs.getTimestamp("UPDATED_AT").toLocalDateTime() : null,
+        rs.getTimestamp("VERIFIED_AT"),
+        rs.getTimestamp("CREATED_AT"),
+        rs.getTimestamp("UPDATED_AT"),
         rs.getInt("IS_DELETED")
         );
     }

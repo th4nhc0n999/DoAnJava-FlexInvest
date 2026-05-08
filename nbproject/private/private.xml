@@ -3,7 +3,10 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/Users/84941/Downloads/DoAnJava-main/src/Controller/RegisterController.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/DAO/EkycDAO.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/View/LoginForm.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/ConnectDB/ConnectionOracle.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/ConnectDB/ConnectionUtils.java</file>
         </group>
     </open-files>
 </project-private>
