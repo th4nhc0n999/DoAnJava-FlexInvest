@@ -1,9 +1,13 @@
 package Utils;
 
+import Model.Investment;
 import Model.SavingsProduct;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.time.ZoneId;
+import java.util.Date;
 
 /**
  * InterestCalculator — Engine tính lãi suất cho FlexInvest (Tuần 1 N2).
@@ -151,4 +155,50 @@ public class InterestCalculator {
         if (primary != null && primary.compareTo(BigDecimal.ZERO) > 0) return primary;
         return (fallback != null) ? fallback : BigDecimal.ZERO;
     }
+
+    /**
+     * Convenience overload: calculates interest with redeemDate = today.
+     * Used in MyInvestmentsPanel to show estimated accrued interest.
+     */
+    public static BigDecimal calculateInterest(Investment investment,
+                                               SavingsProduct product,
+                                               LocalDate redeemDate) {
+        Date start = investment.getStartDate();
+        if (start == null || redeemDate == null) return BigDecimal.ZERO;
+
+        LocalDate startLocal = start.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        long heldDays = ChronoUnit.DAYS.between(startLocal, redeemDate);
+        if (heldDays <= 0) return BigDecimal.ZERO;
+
+        int minHolding = (product != null) ? product.getMinHoldingDays() : 0;
+        BigDecimal principal = investment.getInvestedAmount();
+        BigDecimal rate = investment.getAppliedInterestRate();
+
+        Date maturity = investment.getMaturityDate();
+        LocalDate maturityLocal = (maturity != null) ? maturity.toInstant().atZone(ZoneId.systemDefault()).toLocalDate() : null;
+
+        // Below minimum holding — use fallback rate
+        if (heldDays < minHolding) {
+            BigDecimal fallback = (product != null && product.getFallbackInterestRate() != null)
+                    ? product.getFallbackInterestRate() : BigDecimal.ZERO;
+            return calcInterest(principal, fallback, heldDays);
+        }
+
+        // Early redemption — apply penalty
+        boolean isEarly = maturityLocal != null
+                && redeemDate.isBefore(maturityLocal);
+        if (isEarly && product != null && product.getPenaltyRate() != null) {
+            BigDecimal effectiveRate = rate.subtract(product.getPenaltyRate());
+            if (effectiveRate.compareTo(BigDecimal.ZERO) < 0) effectiveRate = BigDecimal.ZERO;
+            return calcInterest(principal, effectiveRate, heldDays);
+        }
+
+        return calcInterest(principal, rate, heldDays);
+    }
+    public static BigDecimal calculateInterestForDeposit(Investment investment,
+                                                         SavingsProduct product) {
+        return calculateInterest(investment, product, LocalDate.now());
+    }
+
+
 }

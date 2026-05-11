@@ -26,7 +26,7 @@ public class ConnectionOracle {
     public static Connection getOracleConnection() throws ClassNotFoundException, SQLException {
         String host = props.getProperty("db.host", "localhost");
         String port = props.getProperty("db.port", "1521");
-        String sid  = props.getProperty("db.sid",  "orcl");
+        String sid  = props.getProperty("db.sid",  "XE");
         String user = props.getProperty("db.username");
         String pass = props.getProperty("db.password");
 

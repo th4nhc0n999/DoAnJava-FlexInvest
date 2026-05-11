@@ -52,6 +52,7 @@ public class LoginController {
 
         // ── 2. Lấy thông tin user ─────────────────────────────────────────────
         User user = userDAO.getUserById(account.getUserId());
+        System.out.println("User: " + user);
         if (user == null) return null;
 
         // ── 3. Tạo token ──────────────────────────────────────────────────────
