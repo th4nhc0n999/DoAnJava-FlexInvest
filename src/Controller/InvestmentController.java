@@ -4,6 +4,7 @@ import DAO.BankAccountDAO;
 import DAO.EkycDAO;
 import DAO.InvestmentDAO;
 import DAO.NotificationDAO;
+import DAO.SavingsProductDAO;
 import DAO.WalletDAO;
 import Model.BankAccount;
 import Model.Ekyc;
@@ -37,6 +38,7 @@ public class InvestmentController {
     private final EkycDAO        ekycDAO = new EkycDAO();
     private final BankAccountDAO bankDAO = new BankAccountDAO();
     private final NotificationDAO notifDAO = new NotificationDAO();
+    private final SavingsProductDAO productDAO   = new SavingsProductDAO();
 
     /** ID gói Flex-Safe mặc định dùng khi rollover QĐ9. Được load lazy. */
     private SavingsProduct flexSafeProduct = null;
@@ -81,7 +83,7 @@ public class InvestmentController {
         }
 
         // ── Bước 2: Lấy thông tin gói ───────────────────────────────────────
-        SavingsProduct product = invDAO.getProductById(productId);
+        SavingsProduct product = productDAO.getById(productId);
         if (product == null) return BuyResult.PRODUCT_NOT_FOUND;
 
         // ── Bước 3: Kiểm tra isOpenToday() (Flex-Sale, Flex-Holiday) ────────

@@ -56,6 +56,7 @@ public class AccountDAO {
                 if (rs.next()) return mapRow(rs);
             }
         } catch (Exception e) {
+            e.printStackTrace();
             System.err.println("AccountDAO.getByUsername: " + e);
         }
         return null;

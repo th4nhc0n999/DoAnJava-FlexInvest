@@ -7,6 +7,7 @@ package DAO;
 import ConnectDB.ConnectionUtils;
 import Model.Ekyc;
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -114,5 +115,55 @@ public class EkycDAO {
         return false;
     }
             
-    
+    /**
+     * Returns the latest eKYC record for the user, or null if none exists.
+     * @throws Exception 
+     */
+    public Ekyc getLatestByUserId(int userId) throws Exception {
+        String sql = "SELECT kyc_id, user_id, id_number, full_name, date_of_birth, gender, "
+                   + "  place_of_origin, place_of_residence, issue_date, expiry_date, "
+                   + "  issue_place, front_image_url, back_image_url, face_image_url, "
+                   + "  match_score, verified_status, note, verified_at, created_at, "
+                   + "  updated_at, is_deleted "
+                   + "FROM EKYC "
+                   + "WHERE user_id = ? AND is_deleted = 0 "
+                   + "ORDER BY created_at DESC FETCH FIRST 1 ROWS ONLY";
+        try (Connection conn = ConnectionUtils.getMyConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapRow(rs);
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * Inserts a new PENDING eKYC record (stub — image upload handled separately).
+     * Returns generated kyc_id or -1 on failure.
+     */
+    public int submitKyc(int userId, String idNumber, String fullName, LocalDate dob, String gender) {
+        String sql = "INSERT INTO EKYC (user_id, id_number, full_name, date_of_birth, gender, "
+                   + "  verified_status, is_deleted) "
+                   + "VALUES (?, ?, ?, ?, ?, 'PENDING', 0)";
+        try (Connection conn = ConnectionUtils.getMyConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, new String[]{"KYC_ID"})) {
+            ps.setInt(1, userId);
+            ps.setString(2, idNumber);
+            ps.setString(3, fullName);
+            ps.setDate(4, Date.valueOf(dob));
+            ps.setString(5, gender);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) return keys.getInt(1);
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
+
+
 }

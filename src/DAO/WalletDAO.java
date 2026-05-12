@@ -367,4 +367,36 @@ public class WalletDAO extends BaseDAO<Wallet> {
         }
         return list;
     }
+
+
+    public Wallet getWalletByUserId(int userId) {
+        String sql = "SELECT wallet_id, user_id, available_balance, locked_balance, status, is_deleted "
+                   + "FROM WALLET WHERE user_id = ? AND is_deleted = 0";
+        
+        return queryOne(sql, userId);
+    }
+
+    /**
+     * Deducts amount from available_balance and adds to locked_balance.
+     * Used when creating an investment (lock funds).
+     */
+    public boolean lockFunds(int userId, BigDecimal amount) {
+        String sql = "UPDATE WALLET SET available_balance = available_balance - ?, "
+                   + "locked_balance = locked_balance + ? "
+                   + "WHERE user_id = ? AND available_balance >= ? AND is_deleted = 0";
+        
+        return executeUpdate(sql, amount, amount, userId, amount);
+    }
+
+    /**
+     * Returns locked funds to available (used on early redemption payout).
+     */
+    public boolean unlockAndCreditFunds(int userId, BigDecimal lockedToRelease, BigDecimal creditAmount) {
+        String sql = "UPDATE WALLET SET locked_balance = locked_balance - ?, "
+                   + "available_balance = available_balance + ? "
+                   + "WHERE user_id = ? AND is_deleted = 0";
+        
+        return executeUpdate(sql, lockedToRelease, creditAmount, userId);
+    }
+    
 }

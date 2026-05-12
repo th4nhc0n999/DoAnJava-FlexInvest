@@ -2,6 +2,7 @@ package Model;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.time.LocalDate;
 
 /**
  * Model class for Investment
@@ -11,11 +12,13 @@ public class Investment {
     private int investmentId;
     private int userId;
     private int productId;
+    private String productName; // joined from SAVINGS_PRODUCT
     private BigDecimal investedAmount;  
     private BigDecimal appliedInterestRate;
     private Date startDate;
     private Date maturityDate;
     private String status;
+    private String redemptionMethod;     // PT1 | PT2 | PT3 (stored in DB as a custom column if added)
     private int isDeleted;
 
     public Investment() {
@@ -59,6 +62,10 @@ public class Investment {
     public void setProductId(int productId) {
         this.productId = productId;
     }
+
+    public String getProductName() { return productName; }
+    public void setProductName(String productName) { this.productName = productName; }
+
 
     public BigDecimal getInvestedAmount() {
         return investedAmount;
@@ -117,4 +124,15 @@ public class Investment {
                 ", status='" + status + '\'' +
                 '}';
     }
+
+    public boolean isDueWithinDays(int days) {
+        if (maturityDate == null) return false;
+        java.util.Date threshold = java.util.Date.from(LocalDate.now().plusDays(days).atStartOfDay().toInstant(java.time.ZoneOffset.UTC));
+        return !maturityDate.after(threshold) && !maturityDate.before(new java.util.Date());
+
+    }
+
+    public String getRedemptionMethod() { return redemptionMethod; }
+    public void setRedemptionMethod(String redemptionMethod) { this.redemptionMethod = redemptionMethod; }
+
 }

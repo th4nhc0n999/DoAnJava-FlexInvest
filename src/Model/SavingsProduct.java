@@ -95,6 +95,20 @@ public class SavingsProduct {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
+    public boolean isFlexSale() {
+        return productName != null && productName.toLowerCase().contains("flex-sale");
+    }
+
+    public boolean isFlexHoliday() {
+        return productName != null && productName.toLowerCase().contains("flex-holiday");
+    }
+
+    /**
+     * Flex-Sale: open Monday-Friday only.
+     * Flex-Holiday: open Saturday-Sunday only.
+     * All other products: always open.
+     */
+
     /** true nếu là gói không kỳ hạn (Flex-Safe). */
     public boolean isFlexSafe() { return term == 0; }
 

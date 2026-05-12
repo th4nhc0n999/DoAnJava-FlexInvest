@@ -55,8 +55,8 @@ public class MainPage extends JFrame {
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 16, 0));
         right.setOpaque(false);
 
-        String role = currentAccount.getUser().getRoleId() == 1 ? "Admin" : "Thành viên";
-        JLabel lblUser = new JLabel(currentAccount.getAccount().getUsername() + "  |  " + role);
+        String role = currentAccount.user().getRoleId() == 1 ? "Admin" : "Thành viên";
+        JLabel lblUser = new JLabel(currentAccount.account().getUsername() + "  |  " + role);
         lblUser.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblUser.setForeground(new Color(200, 215, 235));
 
@@ -102,7 +102,7 @@ public class MainPage extends JFrame {
             side.add(buildMenuItem(menus[i], i == 0, null));
         }
 
-        if (currentAccount.getUser().getRoleId() == 1) {
+        if (currentAccount.user().getRoleId() == 1) {
             side.add(Box.createVerticalStrut(8));
             side.add(buildSeparator());
             side.add(buildMenuItem("Phân Quyền", false, e -> new PermissionManagementView()));
@@ -153,7 +153,7 @@ public class MainPage extends JFrame {
         content.setBorder(new EmptyBorder(28, 28, 28, 28));
 
         // Welcome
-        JLabel welcome = new JLabel("Xin chào, " + currentAccount.getAccount().getUsername() + "!");
+        JLabel welcome = new JLabel("Xin chào, " + currentAccount.account().getUsername() + "!");
         welcome.setFont(new Font("Segoe UI", Font.BOLD, 22));
         welcome.setForeground(TEXT_DARK);
         welcome.setAlignmentX(LEFT_ALIGNMENT);
@@ -173,11 +173,11 @@ public class MainPage extends JFrame {
         cardRow.setOpaque(false);
         cardRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
         cardRow.setAlignmentX(LEFT_ALIGNMENT);
-        cardRow.add(buildInfoCard("Trạng thái",  currentAccount.getUser().getStatus(),       new Color(0, 180, 120)));
-        cardRow.add(buildInfoCard("Email",        currentAccount.getUser().getEmail(),        BLUE));
+        cardRow.add(buildInfoCard("Trạng thái",  currentAccount.user().getStatus(),       new Color(0, 180, 120)));
+        cardRow.add(buildInfoCard("Email",        currentAccount.user().getEmail(),        BLUE));
         cardRow.add(buildInfoCard("Thành viên từ",
-                currentAccount.getUser().getCreatedAt() != null
-                    ? currentAccount.getUser().getCreatedAt().toString().substring(0, 10)
+                currentAccount.user().getCreatedAt() != null
+                    ? currentAccount.user().getCreatedAt().toString().substring(0, 10)
                     : "—",
                 new Color(160, 100, 220)));
         content.add(cardRow);

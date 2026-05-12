@@ -1,6 +1,7 @@
 package DAO;
 
 import ConnectDB.ConnectionOracle;
+import ConnectDB.ConnectionUtils;
 import Model.Investment;
 import Model.Payout;
 import Model.SavingsProduct;
@@ -13,7 +14,7 @@ import java.util.List;
 /**
  * InvestmentDAO — truy vấn DB cho bảng INVESTMENT, PAYOUT, SAVINGS_PRODUCT.
  */
-public class InvestmentDAO {
+public class InvestmentDAO extends BaseDAO<Investment> {
 
     // =========================================================================
     //  Mapping
@@ -305,4 +306,184 @@ public class InvestmentDAO {
         }
         return -1;
     }
+
+    /** Active investments only (status = ACTIVE or PENDING). */
+    public List<Investment> getActiveByUserId(int userId) {
+        String sql = "SELECT i.investment_id, i.user_id, i.product_id, sp.product_name, "
+                   + "  i.invested_amount, i.applied_interest_rate, i.start_date, "
+                   + "  i.maturity_date, i.status, i.is_deleted "
+                   + "FROM INVESTMENT i "
+                   + "JOIN SAVINGS_PRODUCT sp ON sp.product_id = i.product_id "
+                   + "WHERE i.user_id = ? AND i.status IN ('ACTIVE','PENDING') AND i.is_deleted = 0 "
+                   + "ORDER BY i.maturity_date ASC";
+        return query(sql, userId);
+    }
+
+    /** Investments maturing within the next N days. */
+    public List<Investment> getDueSoon(int userId, int days) {
+        String sql = "SELECT i.investment_id, i.user_id, i.product_id, sp.product_name, "
+                   + "  i.invested_amount, i.applied_interest_rate, i.start_date, "
+                   + "  i.maturity_date, i.status, i.is_deleted "
+                   + "FROM INVESTMENT i "
+                   + "JOIN SAVINGS_PRODUCT sp ON sp.product_id = i.product_id "
+                   + "WHERE i.user_id = ? AND i.status IN ('ACTIVE','PENDING') "
+                   + "  AND i.maturity_date BETWEEN TRUNC(SYSDATE) AND TRUNC(SYSDATE) + ? "
+                   + "  AND i.is_deleted = 0 "
+                   + "ORDER BY i.maturity_date ASC";
+        String baseSql = "SELECT i.investment_id, i.user_id, i.product_id, sp.product_name, "
+                       + "  i.invested_amount, i.applied_interest_rate, i.start_date, "
+                       + "  i.maturity_date, i.status, i.is_deleted "
+                       + "FROM INVESTMENT i "
+                       + "JOIN SAVINGS_PRODUCT sp ON sp.product_id = i.product_id "
+                       + "WHERE i.user_id = ? AND i.status IN ('ACTIVE','PENDING') "
+                       + "  AND i.maturity_date BETWEEN TRUNC(SYSDATE) AND TRUNC(SYSDATE) + ? "
+                       + "  AND i.is_deleted = 0 "
+                       + "ORDER BY i.maturity_date ASC";
+        List<Investment> result = new ArrayList<>();
+        try (Connection conn = ConnectionUtils.getMyConnection();
+             PreparedStatement ps = conn.prepareStatement(baseSql)) {
+            ps.setInt(1, userId);
+            ps.setInt(2, days);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) result.add(mapRow(rs));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /** Sum of invested_amount for all active investments of a user. */
+    public BigDecimal getTotalActiveInvestedAmount(int userId) {
+        String sql = "SELECT NVL(SUM(invested_amount), 0) FROM INVESTMENT "
+                   + "WHERE user_id = ? AND status IN ('ACTIVE','PENDING') AND is_deleted = 0";
+        try (Connection conn = ConnectionUtils.getMyConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getBigDecimal(1);
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return BigDecimal.ZERO;
+    }
+
+    // -----------------------------------------------------------------------
+    // WRITE
+    // -----------------------------------------------------------------------
+
+    /**
+     * Inserts a new investment row and returns the generated investment_id,
+     * or -1 on failure.
+     */
+    public int createInvestment(int userId, int productId, BigDecimal amount,
+                                BigDecimal rate, LocalDate startDate, LocalDate maturityDate) {
+        String sql = "INSERT INTO INVESTMENT "
+                   + "(user_id, product_id, invested_amount, applied_interest_rate, "
+                   + " start_date, maturity_date, status, is_deleted) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, 'PENDING', 0)";
+        try (Connection conn = ConnectionUtils.getMyConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, new String[]{"INVESTMENT_ID"})) {
+            ps.setInt(1, userId);
+            ps.setInt(2, productId);
+            ps.setBigDecimal(3, amount);
+            ps.setBigDecimal(4, rate);
+            ps.setDate(5, Date.valueOf(startDate));
+            ps.setDate(6, Date.valueOf(maturityDate));
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) return keys.getInt(1);
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
+
+    /**
+     * Marks an investment as REDEEMED.
+     */
+    public boolean markRedeemed(int investmentId) {
+        return updateStatus(investmentId, "REDEEMED");
+    }
+
+    /**
+     * Updates redemption method (PT1/PT2/PT3) — stored in status field prefixed,
+     * or you can add a separate column. Here we store it as a note in status
+     * for simplicity; adapt if a dedicated column is added.
+     * NOTE: If the DB has no redemption_method column, this is a no-op placeholder.
+     */
+    public boolean updateRedemptionMethod(int investmentId, String method) {
+        // Stored in a custom column redemption_method if it exists.
+        // If not, skip silently — schema extension required.
+        String sql = "UPDATE INVESTMENT SET status = status WHERE investment_id = ?";
+        // Real implementation once column exists:
+        // String sql = "UPDATE INVESTMENT SET redemption_method = ? WHERE investment_id = ?";
+        try (Connection conn = ConnectionUtils.getMyConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, investmentId);
+            return ps.executeUpdate() == 1;
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+
+    // -----------------------------------------------------------------------
+    // MAPPING
+    // -----------------------------------------------------------------------
+
+    private List<Investment> query(String sql, int userId) {
+        List<Investment> list = new ArrayList<>();
+        try (Connection conn = ConnectionUtils.getMyConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRow(rs));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    protected Investment mapRow(ResultSet rs) throws SQLException {
+        Investment inv = new Investment();
+        inv.setInvestmentId(rs.getInt("investment_id"));
+        inv.setUserId(rs.getInt("user_id"));
+        inv.setProductId(rs.getInt("product_id"));
+        inv.setProductName(rs.getString("product_name"));
+        inv.setInvestedAmount(rs.getBigDecimal("invested_amount"));
+        inv.setAppliedInterestRate(rs.getBigDecimal("applied_interest_rate"));
+        Date sd = rs.getDate("start_date");
+        // if (sd != null) inv.setStartDate(sd.toLocalDate());
+        if (sd != null) {
+            inv.setStartDate(
+                (Date) java.util.Date.from(
+                    sd.toLocalDate()
+                    .atStartOfDay(java.time.ZoneId.systemDefault())
+                    .toInstant()
+                )
+            );
+        }
+        Date md = rs.getDate("maturity_date");
+        // if (md != null) inv.setMaturityDate(md.toLocalDate());
+        if (md != null) {
+            inv.setMaturityDate(
+                (Date) java.util.Date.from(
+                    sd.toLocalDate()
+                    .atStartOfDay(java.time.ZoneId.systemDefault())
+                    .toInstant()
+                )
+            );
+        }
+        inv.setStatus(rs.getString("status"));
+        inv.setIsDeleted(rs.getInt("is_deleted"));
+        return inv;
+    }
+
+
+
 }

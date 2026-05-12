@@ -10,8 +10,11 @@ import java.net.URL;
 import javax.imageio.ImageIO;
 import Controller.LoginController;
 import Controller.RegisterController;
+import DAO.AccountPermissionDAO;
 import Model.AccountModel;
 import Utils.SessionManager;
+import View.customer.CustomerDashboardPanel;
+import View.customer.CustomerFrame;
 
 public class LoginForm extends JFrame {
 
@@ -402,7 +405,16 @@ public class LoginForm extends JFrame {
             AccountModel account = loginController.loginController(user, pass);
             if (account != null) {
                 SessionManager.login(account);
-                new MainPage(account);
+
+                // Kiểm tra role
+                if (account.user().getRoleId() == 1) {
+                    new MainPage(account);
+                } else {
+                    new CustomerFrame(
+                        account.user().getUserId(),
+                        account.account().getUsername()
+                    );
+                }   
                 dispose();
             } else {
                 JOptionPane.showMessageDialog(this, "Tên đăng nhập hoặc mật khẩu không đúng!", "Lỗi đăng nhập", JOptionPane.ERROR_MESSAGE);
