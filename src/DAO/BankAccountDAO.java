@@ -63,6 +63,22 @@ public class BankAccountDAO {
         }
         return list;
     }
+
+    /** Lấy thông tin tài khoản ngân hàng theo bank_account_id (dùng cho WithdrawApprovalPanel). */
+    public BankAccount getById(int bankAccountId) {
+        String sql = "SELECT * FROM BANK_ACCOUNT WHERE BANK_ACCOUNT_ID = ? AND IS_DELETED = 0";
+        try (Connection conn = ConnectionUtils.getMyConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, bankAccountId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapRow(rs);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     
     public boolean setLinked(int bankAccountId, int userId) {
         String sqlRemoveOld = "UPDATE BANK_ACCOUNT SET IS_LINKED = 0 WHERE USER_ID = ?";

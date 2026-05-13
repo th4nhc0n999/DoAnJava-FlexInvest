@@ -1,20 +1,19 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Main.java to edit this template
- */
 package doanjava;
+import Model.AccountModel;
+import Model.User;
+import Model.Account;
+import View.MainPage;
+import java.sql.Timestamp;
 
-/**
- *
- * @author 84941
- */
 public class DoAnJava {
-
-    /**
-     * @param args the command line arguments
-     */
     public static void main(String[] args) {
-        javax.swing.SwingUtilities.invokeLater(() -> new View.LoginForm());
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            Account acc = new Account();
+            acc.setUsername("admin");
+            User u = new User();
+            u.setRoleId(1);
+            AccountModel am = new AccountModel(acc, u, "mockToken", new Timestamp(System.currentTimeMillis()));
+            new MainPage(am);
+        });
     }
-    
 }

@@ -279,6 +279,40 @@ public class InvestmentController {
         return count;
     }
 
+    /**
+     * Chạy batch tự động (gọi từ nút "Chạy batch hôm nay" của Admin).
+     * @return Chuỗi báo cáo kết quả.
+     */
+    public String runDailyBatch() {
+        StringBuilder sb = new StringBuilder();
+        
+        // 1. Chạy lãi suất hàng ngày cho Flex-Safe
+        SavingsProduct flexSafe = getFlexSafe();
+        if (flexSafe != null) {
+            int flexCount = dailyFlexSafeAccrual(flexSafe.getProductId());
+            sb.append("- Đã cộng lãi ngày cho ").append(flexCount).append(" khoản Flex-Safe.\n");
+        } else {
+            sb.append("- Không tìm thấy gói Flex-Safe mặc định.\n");
+        }
+
+        // 2. Xử lý đáo hạn (Maturity)
+        List<Investment> matured = invDAO.getMaturedInvestmentsToday();
+        int maturedCount = 0;
+        int failedCount = 0;
+        for (Investment inv : matured) {
+            // Mặc định gọi PT1 nếu chưa thiết lập
+            boolean ok = processMaturity(inv.getInvestmentId(), "1", flexSafe != null ? flexSafe.getProductId() : null);
+            if (ok) maturedCount++;
+            else failedCount++;
+        }
+        sb.append("- Đã tất toán thành công ").append(maturedCount).append(" khoản đáo hạn.\n");
+        if (failedCount > 0) {
+            sb.append("- Thất bại/Lỗi: ").append(failedCount).append(" khoản đáo hạn.\n");
+        }
+
+        return sb.toString();
+    }
+
     // =========================================================================
     //  5. processMaturity() — Tất toán đúng hạn (phức tạp nhất)
     // =========================================================================

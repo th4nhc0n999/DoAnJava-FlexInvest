@@ -7,6 +7,22 @@
             <file>file:/D:/java/DoAnJava-FlexInvest/src/View/LoginForm.java</file>
             <file>file:/D:/java/DoAnJava-FlexInvest/src/ConnectDB/ConnectionOracle.java</file>
             <file>file:/D:/java/DoAnJava-FlexInvest/src/ConnectDB/ConnectionUtils.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Model/AccountModel.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Model/Account.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/DAO/TokenDAO.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/DAO/InvestmentDAO.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Utils/SessionManager.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Controller/ForgotPasswordController.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Controller/InvestmentController.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Controller/LoginController.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/View/MainPage.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/DAO/MissionDAO.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Utils/DateUtils.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Utils/PermissionUtils.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Utils/PasswordUtils.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Utils/InterestCalculator.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Utils/TokenUtils.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/DAO/AccountDAO.java</file>
         </group>
     </open-files>
 </project-private>

@@ -104,12 +104,22 @@ public class SavingsProduct {
     /**
      * Kiểm tra gói có đang mở bán hôm nay không.
      *  - Gói thường / Flex-Safe: chỉ cần status=ACTIVE.
-     *  - Flex-Sale / Flex-Holiday: nằm trong [startDate, endDate].
+     *  - Flex-Sale: Mở vào ngày đôi (ngày == tháng, VD: 1/1, 2/2, ...).
+     *  - Flex-Holiday: Nằm trong [startDate, endDate].
      */
     public boolean isOpenToday() {
         if (!"ACTIVE".equals(status)) return false;
-        if (!hasDateWindow()) return true;
+        
         LocalDate today = LocalDate.now();
+        
+        // Flex-Sale: mở bán ngày đôi
+        if (productName != null && productName.toLowerCase().contains("flex-sale")) {
+            return today.getDayOfMonth() == today.getMonthValue();
+        }
+        
+        // Flex-Holiday hoặc các gói có cấu hình ngày
+        if (!hasDateWindow()) return true; // Gói thường luôn mở
+        
         boolean afterStart = (startDate == null) || !today.isBefore(startDate);
         boolean beforeEnd  = (endDate   == null) || !today.isAfter(endDate);
         return afterStart && beforeEnd;

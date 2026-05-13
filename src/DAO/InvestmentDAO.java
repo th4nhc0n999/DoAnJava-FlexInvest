@@ -112,6 +112,94 @@ public class InvestmentDAO {
         return list;
     }
 
+    public boolean hasActiveInvestments(int productId) {
+        String sql = "SELECT COUNT(*) FROM INVESTMENT WHERE product_id = ? AND status = 'ACTIVE' AND is_deleted = 0";
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1) > 0;
+            }
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.hasActiveInvestments] " + e.getMessage());
+        }
+        return false;
+    }
+
+    public int insertProduct(SavingsProduct p) {
+        String sql = """
+            INSERT INTO SAVINGS_PRODUCT 
+              (product_name, interest_rate, term, min_investment_amount, max_investment_amount,
+               penalty_rate, fallback_interest_rate, min_holding_days, status, currency,
+               start_date, end_date, is_deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            """;
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(sql, new String[]{"product_id"})) {
+            ps.setString(1, p.getProductName());
+            ps.setBigDecimal(2, p.getInterestRate());
+            ps.setInt(3, p.getTerm());
+            ps.setBigDecimal(4, p.getMinInvestmentAmount());
+            ps.setBigDecimal(5, p.getMaxInvestmentAmount());
+            ps.setBigDecimal(6, p.getPenaltyRate());
+            ps.setBigDecimal(7, p.getFallbackInterestRate());
+            ps.setInt(8, p.getMinHoldingDays());
+            ps.setString(9, p.getStatus() != null ? p.getStatus() : "ACTIVE");
+            ps.setString(10, p.getCurrency());
+            ps.setDate(11, p.getStartDate() != null ? Date.valueOf(p.getStartDate()) : null);
+            ps.setDate(12, p.getEndDate() != null ? Date.valueOf(p.getEndDate()) : null);
+            ps.executeUpdate();
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.insertProduct] " + e.getMessage());
+        }
+        return -1;
+    }
+
+    public boolean updateProduct(SavingsProduct p) {
+        String sql = """
+            UPDATE SAVINGS_PRODUCT SET 
+              product_name=?, interest_rate=?, term=?, min_investment_amount=?, max_investment_amount=?,
+              penalty_rate=?, fallback_interest_rate=?, min_holding_days=?, currency=?,
+              start_date=?, end_date=? 
+            WHERE product_id=? AND is_deleted=0
+            """;
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, p.getProductName());
+            ps.setBigDecimal(2, p.getInterestRate());
+            ps.setInt(3, p.getTerm());
+            ps.setBigDecimal(4, p.getMinInvestmentAmount());
+            ps.setBigDecimal(5, p.getMaxInvestmentAmount());
+            ps.setBigDecimal(6, p.getPenaltyRate());
+            ps.setBigDecimal(7, p.getFallbackInterestRate());
+            ps.setInt(8, p.getMinHoldingDays());
+            ps.setString(9, p.getCurrency());
+            ps.setDate(10, p.getStartDate() != null ? Date.valueOf(p.getStartDate()) : null);
+            ps.setDate(11, p.getEndDate() != null ? Date.valueOf(p.getEndDate()) : null);
+            ps.setInt(12, p.getProductId());
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.updateProduct] " + e.getMessage());
+        }
+        return false;
+    }
+
+    public boolean toggleProductStatus(int productId, String newStatus) {
+        String sql = "UPDATE SAVINGS_PRODUCT SET status = ? WHERE product_id = ? AND is_deleted = 0";
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, newStatus);
+            ps.setInt(2, productId);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.toggleProductStatus] " + e.getMessage());
+        }
+        return false;
+    }
+
     // =========================================================================
     //  INVESTMENT
     // =========================================================================
@@ -141,6 +229,89 @@ public class InvestmentDAO {
             }
         } catch (Exception e) {
             System.err.println("[InvestmentDAO.getByUserId] " + e.getMessage());
+        }
+        return list;
+    }
+
+    /**
+     * Chỉ lấy Investment đang ACTIVE của user.
+     * Dùng trong MyInvestmentsPanel để hiển thị danh sách đang chạy.
+     */
+    public List<Investment> getActiveByUserId(int userId) {
+        List<Investment> list = new ArrayList<>();
+        String sql = "SELECT * FROM INVESTMENT WHERE user_id = ? AND status = 'ACTIVE' AND is_deleted = 0 ORDER BY investment_id DESC";
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapInvestment(rs));
+            }
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.getActiveByUserId] " + e.getMessage());
+        }
+        return list;
+    }
+
+    /**
+     * Tổng số tiền đang ACTIVE để hiển thị card "Tổng đang tích lũy" trên Dashboard.
+     */
+    public BigDecimal getTotalActiveAmount(int userId) {
+        String sql = "SELECT NVL(SUM(invested_amount), 0) FROM INVESTMENT WHERE user_id = ? AND status = 'ACTIVE' AND is_deleted = 0";
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getBigDecimal(1);
+            }
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.getTotalActiveAmount] " + e.getMessage());
+        }
+        return BigDecimal.ZERO;
+    }
+
+    /**
+     * Lấy Investment sắp đáo hạn trong vòng {@code days} ngày tới của user.
+     * Dùng cho "Gói sắp đáo hạn" trên CustomerDashboard và highlight MyInvestmentsPanel.
+     *
+     * @param userId ID user
+     * @param days   Số ngày (ví dụ: 7 cho Dashboard, 3 cho highlight vàng)
+     */
+    public List<Investment> getMaturitySoon(int userId, int days) {
+        List<Investment> list = new ArrayList<>();
+        String sql = "SELECT * FROM INVESTMENT "
+                   + "WHERE user_id = ? AND status = 'ACTIVE' AND is_deleted = 0"
+                   + "  AND maturity_date IS NOT NULL"
+                   + "  AND maturity_date BETWEEN SYSDATE AND SYSDATE + ?"
+                   + " ORDER BY maturity_date ASC";
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.setInt(2, days);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapInvestment(rs));
+            }
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.getMaturitySoon] " + e.getMessage());
+        }
+        return list;
+    }
+
+    /**
+     * Lấy tất cả các khoản đầu tư đáo hạn hôm nay (hoặc đã quá hạn nhưng chưa xử lý).
+     * Dùng cho việc chạy batch tự động.
+     */
+    public List<Investment> getMaturedInvestmentsToday() {
+        List<Investment> list = new ArrayList<>();
+        String sql = "SELECT * FROM INVESTMENT "
+                   + "WHERE status = 'ACTIVE' AND is_deleted = 0"
+                   + "  AND maturity_date IS NOT NULL"
+                   + "  AND TRUNC(maturity_date) <= TRUNC(SYSDATE)";
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(mapInvestment(rs));
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.getMaturedInvestmentsToday] " + e.getMessage());
         }
         return list;
     }
