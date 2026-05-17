@@ -23,6 +23,10 @@
             <file>file:/D:/java/DoAnJava-FlexInvest/src/Utils/InterestCalculator.java</file>
             <file>file:/D:/java/DoAnJava-FlexInvest/src/Utils/TokenUtils.java</file>
             <file>file:/D:/java/DoAnJava-FlexInvest/src/DAO/AccountDAO.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/View/UserManagementPanel.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/View/OtpDialog.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/View/AdminDashboardPanel.java</file>
+            <file>file:/D:/java/DoAnJava-FlexInvest/src/Controller/SavingsProductController.java</file>
         </group>
     </open-files>
 </project-private>
