@@ -100,6 +100,44 @@ public class EkycDAO {
         return false;
     }
     
+    /**
+     * Lấy bản ghi KYC mới nhất của user (bất kể trạng thái).
+     * Dùng cho CustomerDashboard để hiển thị trạng thái KYC hiện tại.
+     * @return Ekyc mới nhất, hoặc null nếu user chưa nộp hồ sơ.
+     */
+    public Ekyc getLatestByUserId(int userId) {
+        // Bọc bên ngoài để Oracle xử lý ORDER BY + ROWNUM đúng cách
+        String sql = "SELECT * FROM ("
+                   + "  SELECT * FROM EKYC WHERE USER_ID = ? AND IS_DELETED = 0"
+                   + "  ORDER BY CREATED_AT DESC"
+                   + ") WHERE ROWNUM = 1";
+        try (Connection conn = ConnectionUtils.getMyConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapRow(rs);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /** Lấy hồ sơ KYC theo kycId cụ thể (Staff dùng khi approve/reject). */
+    public Ekyc getLatestByKycId(int kycId) {
+        String sql = "SELECT * FROM EKYC WHERE KYC_ID = ? AND IS_DELETED = 0";
+        try (Connection conn = ConnectionUtils.getMyConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, kycId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapRow(rs);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public boolean reject(int kycId, String reason) {
         String sql = "UPDATE EKYC SET VERIFIED_STATUS = 'REJECTED', NOTE = ?, VERIFIED_AT = CURRENT_TIMESTAMP, "
                 + "UPDATED_AT = CURRENT_TIMESTAMP WHERE KYC_ID = ?";

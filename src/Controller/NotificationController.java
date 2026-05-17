@@ -2,7 +2,6 @@ package Controller;
 
 import DAO.NotificationDAO;
 import Model.Notification;
-
 import java.util.List;
 
 /**

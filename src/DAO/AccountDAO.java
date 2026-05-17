@@ -61,6 +61,20 @@ public class AccountDAO {
         return null;
     }
 
+    public Account getByUserId(int userId) {
+        String sql = "SELECT * FROM ACCOUNT WHERE USER_ID = ? AND IS_DELETED = 0";
+        try (Connection con = ConnectionUtils.getMyConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapRow(rs);
+            }
+        } catch (Exception e) {
+            System.err.println("AccountDAO.getByUserId: " + e);
+        }
+        return null;
+    }
+
     public boolean insert(Account a) {
         String sql = "INSERT INTO ACCOUNT "
                    + "(USER_ID, USERNAME, PASSWORD_HASH, STATUS, CREATED_AT, UPDATED_AT, IS_DELETED) "

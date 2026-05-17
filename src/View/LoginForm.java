@@ -31,7 +31,7 @@ public class LoginForm extends JFrame {
     private JLabel lblPassword;
     private JPasswordField txtPassword;
     private JLabel lblForgot;
-    private JButton btnZingPlay;
+    private JButton btnLogin;
 
     // === Form Đăng Ký ===
     private JPanel pnlRegister;
@@ -121,7 +121,7 @@ public class LoginForm extends JFrame {
         lblPassword = new JLabel("Mật khẩu");
         txtPassword = new JPasswordField();
         lblForgot   = new JLabel("<html><u>Quên mật khẩu</u></html>");
-        btnZingPlay = new JButton("Đăng nhập");
+        btnLogin = new JButton("Đăng nhập");
 
         pnlLogin.add(lblUsername);
         pnlLogin.add(Box.createVerticalStrut(6));
@@ -133,7 +133,7 @@ public class LoginForm extends JFrame {
         pnlLogin.add(Box.createVerticalStrut(10));
         pnlLogin.add(lblForgot);
         pnlLogin.add(Box.createVerticalStrut(16));
-        pnlLogin.add(btnZingPlay);
+        pnlLogin.add(btnLogin);
 
         // ---- Trang Đăng Ký ----
         pnlRegister = new JPanel();
@@ -292,7 +292,7 @@ public class LoginForm extends JFrame {
         setPlaceholder(txtRegReferral, PH_REFERRAL);
 
         // Buttons
-        styleButton(btnZingPlay, BLUE);
+        styleButton(btnLogin, BLUE);
         styleButton(btnRegister, BLUE);
     }
 
@@ -390,7 +390,7 @@ public class LoginForm extends JFrame {
         });
 
         // Đăng nhập
-        btnZingPlay.addActionListener(e -> {
+        btnLogin.addActionListener(e -> {
             String user = getFieldValue(txtUsername, PH_USERNAME);
             String pass = getPasswordValue(txtPassword, PH_PASSWORD);
 

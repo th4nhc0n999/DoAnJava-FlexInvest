@@ -55,6 +55,24 @@ public class NotificationDAO {
         return send(userId, title, null, type);
     }
 
+    /**
+     * Gửi thông báo cho toàn bộ người dùng (Broadcast).
+     */
+    public boolean broadcast(String title, String body, String type) {
+        String sql = "INSERT INTO NOTIFICATION (user_id, title, body, type) " +
+                     "SELECT user_id, ?, ?, ? FROM USERS WHERE is_deleted = 0";
+        try (Connection conn = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, title);
+            ps.setString(2, body);
+            ps.setString(3, type);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.err.println("[NotificationDAO.broadcast] Lỗi: " + e.getMessage());
+            return false;
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // PHẦN 2: LẤY THÔNG BÁO
     // ═══════════════════════════════════════════════════════════════════════
