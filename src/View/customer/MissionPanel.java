@@ -2,6 +2,7 @@ package View.customer;
 
 import DAO.MissionDAO;
 import DAO.TokenDAO;
+import DAO.WalletDAO;
 import Model.AccountModel;
 import Model.Mission;
 import Model.UserMission;
@@ -39,6 +40,7 @@ public class MissionPanel extends JPanel {
     private final int          userId;
     private final MissionDAO   missionDAO = new MissionDAO();
     private final TokenDAO     tokenDAO   = new TokenDAO();
+    private final WalletDAO    walletDAO  = new WalletDAO();
 
     // ── Token header ─────────────────────────────────────────────────────────
     private JLabel lblTokenBalance;
@@ -499,14 +501,18 @@ public class MissionPanel extends JPanel {
             "Xác nhận đổi Token", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        // Gọi TokenDAO.deductToken và WalletDAO.credit
         new SwingWorker<Boolean, Void>() {
             @Override protected Boolean doInBackground() {
+                // 1. Trừ token
                 boolean deducted = tokenDAO.deductToken(userId, tokenBalance);
                 if (!deducted) return false;
-                // Credit VNĐ vào ví (dùng WalletController nếu có, hoặc WalletDAO trực tiếp)
-                // Tạm thời thông báo thành công — tích hợp WalletController trong thực tế
-                return true;
+                // 2. Credit VNĐ vào ví
+                var wallet = walletDAO.getByUserId(userId);
+                if (wallet == null) return false;
+                int txId = walletDAO.credit(
+                    wallet.getWalletId(), "BONUS", vnd,
+                    "Đổi " + tokenBalance.toPlainString() + " FlexToken sang VNĐ");
+                return txId > 0;
             }
             @Override protected void done() {
                 try {
@@ -514,7 +520,7 @@ public class MissionPanel extends JPanel {
                         BigDecimal bal = tokenDAO.getBalance(userId);
                         lblTokenBalance.setText(VND.format(bal) + " Token");
                         JOptionPane.showMessageDialog(MissionPanel.this,
-                            "✅ Đổi Token thành công!\nSẽ nhận " + VND.format(vnd) + " VNĐ vào ví.",
+                            "✅ Đổi Token thành công!\nĐã nhận " + VND.format(vnd) + " VNĐ vào ví.",
                             "Thành công", JOptionPane.INFORMATION_MESSAGE);
                     } else {
                         JOptionPane.showMessageDialog(MissionPanel.this, "Đổi Token thất bại!",

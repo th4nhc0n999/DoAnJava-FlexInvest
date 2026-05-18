@@ -1,11 +1,16 @@
+-- ============================================================
+-- FlexInvest — DDL Schema Script (FIXED)
+-- Oracle Database
+-- ============================================================
+-- Fixes:
+--   1. "TRANSACTION" dùng dấu ngoặc kép (Oracle reserved word)
+--   2. ROLES seed: 3 roles (Admin=1, Staff=2, Customer=3)
+--   3. INVESTMENT có cột payout_method, target_product_id
+--   4. LEDGER columns khớp với WalletDAO.java
+--   5. Admin seed dùng email nhất quán: admin@flexinvest.vn
+-- ============================================================
+
 ALTER SESSION SET CURRENT_SCHEMA = FlexInvest;
--- ============================================================
--- PL/SQL DDL Script - FlexInvest
--- FIX: Tất cả lỗi tương thích với Java code đã được sửa:
---   1. TRANSACTION là reserved word → thêm "quotes"
---   2. Thêm seed data SYS_FUNCTION (ID 1-5) để LoginController hoạt động
---   3. Admin user + account seed data
--- ============================================================
 
 -- 1. ROLES
 CREATE TABLE ROLES (
@@ -112,12 +117,7 @@ CREATE TABLE TRANSACTION_TYPE (
     is_deleted  NUMBER(1)     DEFAULT 0 NOT NULL CHECK (is_deleted IN (0,1))
 );
 
--- ============================================================
--- FIX #1: TRANSACTION là từ khoá Oracle → dùng dấu ngoặc kép
---         để tạo bảng an toàn, và tất cả query trong Java
---         đã được cập nhật thành "TRANSACTION" (có quotes).
--- ============================================================
--- 9. TRANSACTION
+-- 9. TRANSACTION (dùng ngoặc kép vì là reserved word trong Oracle)
 CREATE TABLE "TRANSACTION" (
     transaction_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     wallet_id      NUMBER         NOT NULL,
@@ -126,8 +126,8 @@ CREATE TABLE "TRANSACTION" (
     status         VARCHAR2(50)   DEFAULT 'PENDING' NOT NULL,
     created_at     TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
     is_deleted     NUMBER(1)      DEFAULT 0 NOT NULL CHECK (is_deleted IN (0,1)),
-    CONSTRAINT fk_txn_wallet    FOREIGN KEY (wallet_id)  REFERENCES WALLET(wallet_id),
-    CONSTRAINT fk_txn_type      FOREIGN KEY (type_code)  REFERENCES TRANSACTION_TYPE(type_code)
+    CONSTRAINT fk_txn_wallet FOREIGN KEY (wallet_id)  REFERENCES WALLET(wallet_id),
+    CONSTRAINT fk_txn_type   FOREIGN KEY (type_code)  REFERENCES TRANSACTION_TYPE(type_code)
 );
 
 -- 10. DEPOSIT
@@ -139,7 +139,7 @@ CREATE TABLE DEPOSIT (
     receiving_account VARCHAR2(100),
     qr_string         VARCHAR2(2000),
     bank_trans_ref    VARCHAR2(255),
-    expired_at        TIMESTAMP,                              -- NULL khi chưa hết hạn
+    expired_at        TIMESTAMP,
     is_deleted        NUMBER(1)      DEFAULT 0 NOT NULL CHECK (is_deleted IN (0,1)),
     CONSTRAINT fk_deposit_txn FOREIGN KEY (transaction_id) REFERENCES "TRANSACTION"(transaction_id)
 );
@@ -152,14 +152,14 @@ CREATE TABLE WITHDRAW (
     fee             NUMBER(18,2)   DEFAULT 0,
     status          VARCHAR2(50)   DEFAULT 'PENDING' NOT NULL,
     created_at      TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
-    processed_at    TIMESTAMP,                               -- NULL khi chưa xử lý (FIX NPE)
+    processed_at    TIMESTAMP,
     note            VARCHAR2(1000),
     is_deleted      NUMBER(1)      DEFAULT 0 NOT NULL CHECK (is_deleted IN (0,1)),
     CONSTRAINT fk_withdraw_txn  FOREIGN KEY (transaction_id)  REFERENCES "TRANSACTION"(transaction_id),
     CONSTRAINT fk_withdraw_bank FOREIGN KEY (bank_account_id) REFERENCES BANK_ACCOUNT(bank_account_id)
 );
 
--- 12. LEDGER
+-- 12. LEDGER (khớp với WalletDAO.java: debit, credit, balance_after, wallet_id)
 CREATE TABLE LEDGER (
     ledger_id      NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     transaction_id NUMBER       NOT NULL,
@@ -191,17 +191,19 @@ CREATE TABLE SAVINGS_PRODUCT (
     is_deleted              NUMBER(1)      DEFAULT 0 NOT NULL CHECK (is_deleted IN (0,1))
 );
 
--- 14. INVESTMENT
+-- 14. INVESTMENT (khớp với InvestmentDAO.java: start_date, payout_method, target_product_id)
 CREATE TABLE INVESTMENT (
     investment_id         NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id               NUMBER       NOT NULL,
-    product_id            NUMBER       NOT NULL,
-    invested_amount       NUMBER(18,2) NOT NULL,
-    applied_interest_rate NUMBER(6,4)  NOT NULL,
-    start_date            DATE         NOT NULL,
-    maturity_date         DATE         NOT NULL,
-    status                VARCHAR2(50) DEFAULT 'ACTIVE' NOT NULL,
-    is_deleted            NUMBER(1)    DEFAULT 0 NOT NULL CHECK (is_deleted IN (0,1)),
+    user_id               NUMBER         NOT NULL,
+    product_id            NUMBER         NOT NULL,
+    invested_amount       NUMBER(18,2)   NOT NULL,
+    applied_interest_rate NUMBER(6,4)    NOT NULL,
+    start_date            DATE           NOT NULL,
+    maturity_date         DATE,
+    status                VARCHAR2(50)   DEFAULT 'ACTIVE' NOT NULL,
+    payout_method         VARCHAR2(10),
+    target_product_id     NUMBER(10),
+    is_deleted            NUMBER(1)      DEFAULT 0 NOT NULL CHECK (is_deleted IN (0,1)),
     CONSTRAINT fk_inv_user    FOREIGN KEY (user_id)    REFERENCES USERS(user_id),
     CONSTRAINT fk_inv_product FOREIGN KEY (product_id) REFERENCES SAVINGS_PRODUCT(product_id)
 );
@@ -235,7 +237,7 @@ CREATE TABLE EARLY_REDEMPTION_EVENT (
     CONSTRAINT fk_ere_txn FOREIGN KEY (transaction_id) REFERENCES "TRANSACTION"(transaction_id)
 );
 
--- 17. INTEREST_RATE (history)
+-- 17. INTEREST_RATE
 CREATE TABLE INTEREST_RATE (
     history_id     NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     product_id     NUMBER       NOT NULL,
@@ -286,7 +288,7 @@ CREATE TABLE EXCHANGE_MONEY (
     status         VARCHAR2(50) DEFAULT 'PENDING' NOT NULL,
     created_at     TIMESTAMP    DEFAULT SYSTIMESTAMP NOT NULL,
     is_deleted     NUMBER(1)    DEFAULT 0 NOT NULL CHECK (is_deleted IN (0,1)),
-    CONSTRAINT fk_exm_user FOREIGN KEY (user_id)       REFERENCES USERS(user_id),
+    CONSTRAINT fk_exm_user FOREIGN KEY (user_id)        REFERENCES USERS(user_id),
     CONSTRAINT fk_exm_txn  FOREIGN KEY (transaction_id) REFERENCES "TRANSACTION"(transaction_id)
 );
 
@@ -317,9 +319,9 @@ CREATE TABLE USER_MISSION (
     completed_at    TIMESTAMP,
     claimed_at      TIMESTAMP,
     is_deleted      NUMBER(1)    DEFAULT 0 NOT NULL CHECK (is_deleted IN (0,1)),
-    CONSTRAINT uq_user_mission   UNIQUE (user_id, mission_id),
-    CONSTRAINT fk_um_user        FOREIGN KEY (user_id)    REFERENCES USERS(user_id),
-    CONSTRAINT fk_um_mission     FOREIGN KEY (mission_id) REFERENCES MISSIONS(mission_id)
+    CONSTRAINT uq_user_mission UNIQUE (user_id, mission_id),
+    CONSTRAINT fk_um_user      FOREIGN KEY (user_id)    REFERENCES USERS(user_id),
+    CONSTRAINT fk_um_mission   FOREIGN KEY (mission_id) REFERENCES MISSIONS(mission_id)
 );
 
 -- 23. AUDIT_LOG
@@ -384,7 +386,7 @@ CREATE TABLE NOTIFICATION (
 );
 
 -- ============================================================
--- PHÂN QUYỀN HỆ THỐNG (Access Control)
+-- PHÂN QUYỀN HỆ THỐNG
 -- ============================================================
 
 -- 27. ACCOUNT
@@ -474,25 +476,22 @@ COMMIT;
 -- SEED DATA
 -- ============================================================
 
--- ROLES
-INSERT INTO ROLES (role_name, description) VALUES ('Admin',  'Quản trị viên hệ thống');
-INSERT INTO ROLES (role_name, description) VALUES ('Member', 'Thành viên thường');
+-- ROLES: 3 roles để khớp với RegisterController (role_id=3 = Customer)
+INSERT INTO ROLES (role_name, description) VALUES ('Admin',    'Quản trị viên hệ thống');
+INSERT INTO ROLES (role_name, description) VALUES ('Staff',    'Nhân viên xử lý');
+INSERT INTO ROLES (role_name, description) VALUES ('Customer', 'Khách hàng đầu tư');
 COMMIT;
 
--- TRANSACTION_TYPE (bắt buộc vì TRANSACTION.type_code FK đến bảng này)
-INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('DEPOSIT',    'Nạp tiền',      'Giao dịch nạp tiền vào ví');
-INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('WITHDRAW',   'Rút tiền',      'Giao dịch rút tiền khỏi ví');
-INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('INVEST',     'Đầu tư',        'Khóa tiền vào sản phẩm đầu tư');
-INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('PAYOUT',     'Tất toán',      'Nhận lãi / gốc khi đáo hạn');
-INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('EARLY_REDM', 'Tất toán sớm',  'Tất toán trước hạn, áp phạt');
-INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('BONUS',      'Thưởng',        'Thưởng từ giới thiệu / nhiệm vụ');
+-- TRANSACTION_TYPE
+INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('DEPOSIT',    'Nạp tiền',     'Giao dịch nạp tiền vào ví');
+INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('WITHDRAW',   'Rút tiền',     'Giao dịch rút tiền khỏi ví');
+INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('INVEST',     'Đầu tư',       'Khóa tiền vào sản phẩm đầu tư');
+INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('PAYOUT',     'Tất toán',     'Nhận lãi / gốc khi đáo hạn');
+INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('EARLY_REDM', 'Tất toán sớm', 'Tất toán trước hạn, áp phạt');
+INSERT INTO TRANSACTION_TYPE (type_code, type_name, description) VALUES ('BONUS',      'Thưởng',       'Thưởng từ giới thiệu / nhiệm vụ');
 COMMIT;
 
--- ============================================================
--- FIX #2: Seed SYS_FUNCTION với đúng FUNCTION_ID 1-5
---         LoginController.java dùng FUNCTION_IDS = {1,2,3,4,5}
---         Nếu thiếu bất kỳ ID nào → query trả về rỗng → không có quyền
--- ============================================================
+-- SYS_FUNCTION (FUNCTION_ID 1-5, khớp LoginController.FUNCTION_IDS = {1,2,3,4,5})
 INSERT INTO SYS_FUNCTION (FUNCTION_ID, NAME_FUNCTION) VALUES (1, 'Quản lý Người dùng');
 INSERT INTO SYS_FUNCTION (FUNCTION_ID, NAME_FUNCTION) VALUES (2, 'Quản lý Giao dịch');
 INSERT INTO SYS_FUNCTION (FUNCTION_ID, NAME_FUNCTION) VALUES (3, 'Quản lý Đầu tư');
@@ -501,22 +500,18 @@ INSERT INTO SYS_FUNCTION (FUNCTION_ID, NAME_FUNCTION) VALUES (5, 'Báo cáo & Th
 COMMIT;
 
 -- ============================================================
--- Admin user
--- FIX: INSERT đầy đủ thứ tự đúng: USERS → ACCOUNT → WALLET
+-- Admin user seed
+-- Thứ tự: USERS → ACCOUNT → WALLET
 -- ============================================================
+INSERT INTO USERS (role_id, email, password_hash, status, referral_code, is_deleted)
+VALUES (1, 'admin@flexinvest.vn', 'admin123', 'ACTIVE', 'ADMIN001', 0);
 
--- Tạo user Admin (role_id=1)
-INSERT INTO USERS (role_id, email, password_hash, status, is_deleted)
-VALUES (1, 'admin@flexinvest.com', 'admin123', 'ACTIVE', 0);
+INSERT INTO ACCOUNT (USER_ID, USERNAME, PASSWORD_HASH, STATUS, CREATED_AT, UPDATED_AT, IS_DELETED)
+SELECT user_id, 'admin', 'admin123', 'ACTIVE', SYSDATE, SYSDATE, 0
+  FROM USERS WHERE email = 'admin@flexinvest.vn';
 
--- Lấy user_id của admin vừa tạo → tạo ACCOUNT
-INSERT INTO ACCOUNT (USER_ID, USERNAME, PASSWORD_HASH, STATUS, IS_DELETED)
-SELECT user_id, 'admin', 'admin123', 'ACTIVE', 0
-  FROM USERS WHERE email = 'admin@flexinvest.com';
-
--- Tạo WALLET cho admin (bắt buộc — RegisterController cũng làm điều này)
 INSERT INTO WALLET (USER_ID, AVAILABLE_BALANCE, LOCKED_BALANCE, STATUS, IS_DELETED)
 SELECT user_id, 0, 0, 'ACTIVE', 0
-  FROM USERS WHERE email = 'admin@flexinvest.com';
+  FROM USERS WHERE email = 'admin@flexinvest.vn';
 
 COMMIT;

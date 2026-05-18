@@ -83,7 +83,7 @@ public class AdminDashboardPanel extends JPanel {
         // Header
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
-        JLabel title = new JLabel("ổng quan Hệ Thống (Admin)");
+        JLabel title = new JLabel("Tổng quan Hệ Thống (Admin)");
         title.setFont(new Font("Segoe UI", Font.BOLD, 24));
         header.add(title, BorderLayout.WEST);
 
@@ -120,7 +120,10 @@ public class AdminDashboardPanel extends JPanel {
         JScrollPane scroll = new JScrollPane(inner);
         scroll.setBorder(null);
         scroll.getViewport().setBackground(BG);
-        return scroll;
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setBackground(BG);
+        wrapper.add(scroll, BorderLayout.CENTER);
+        return wrapper;
     }
 
     // =========================================================================

@@ -1,7 +1,7 @@
 package Controller;
 
 import ConnectDB.ConnectionOracle;
-import DAO.SavingsProductDAO;
+import DAO.InvestmentDAO;
 import Model.SavingsProduct;
 
 import java.math.BigDecimal;
@@ -19,7 +19,7 @@ import java.util.List;
  */
 public class SavingsProductController {
 
-    private final SavingsProductDAO productDAO = new SavingsProductDAO();
+    private final InvestmentDAO productDAO = new InvestmentDAO();
 
     // ── 1. Tạo gói mới ──────────────────────────────────────────────────────
 
@@ -37,7 +37,7 @@ public class SavingsProductController {
         // Mặc định status ACTIVE, is_deleted = 0
         p.setStatus("ACTIVE");
         p.setIsDeleted(0);
-        int newId = productDAO.insert(p);
+        int newId = productDAO.insertProduct(p);
         if (newId > 0) {
             System.out.printf("[createProduct] Tạo gói '%s' thành công (id=%d)%n",
                     p.getProductName(), newId);
@@ -65,7 +65,7 @@ public class SavingsProductController {
             return false;
         }
 
-        boolean ok = productDAO.update(p);
+        boolean ok = productDAO.updateProduct(p);
         if (ok) System.out.printf("[updateProduct] Cập nhật gói id=%d thành công.%n", p.getProductId());
         return ok;
     }
@@ -86,7 +86,7 @@ public class SavingsProductController {
             return false;
         }
         String newStatus = active ? "ACTIVE" : "INACTIVE";
-        boolean ok = productDAO.updateStatus(productId, newStatus);
+        boolean ok = productDAO.toggleProductStatus(productId, newStatus);
         if (ok) System.out.printf("[toggleActive] Gói id=%d → %s%n", productId, newStatus);
         return ok;
     }
@@ -102,7 +102,8 @@ public class SavingsProductController {
             System.err.println("[deleteProduct] Không thể xóa — đang có khoản đầu tư ACTIVE.");
             return false;
         }
-        return productDAO.softDelete(productId);
+        // soft delete qua toggleProductStatus (đặt INACTIVE)
+        return productDAO.toggleProductStatus(productId, "INACTIVE");
     }
 
     // ── 5. isOpenToday ───────────────────────────────────────────────────────
@@ -113,29 +114,30 @@ public class SavingsProductController {
      * Flex-Sale (ngày đôi) và Flex-Holiday (ngày lễ).
      */
     public boolean isOpenToday(int productId) {
-        return productDAO.isOpenToday(productId);
+        SavingsProduct p = productDAO.getProductById(productId);
+        return p != null && p.isOpenToday();
     }
 
     public boolean isOpenToday(SavingsProduct p) {
-        return productDAO.isOpenToday(p);
+        return p != null && p.isOpenToday();
     }
 
     // ── 6. Query helper ──────────────────────────────────────────────────────
 
     public List<SavingsProduct> getAllProducts() {
-        return productDAO.findAll();
+        return productDAO.getAllActiveProducts();
     }
 
     public List<SavingsProduct> getActiveProducts() {
-        return productDAO.findActive();
+        return productDAO.getAllActiveProducts();
     }
 
     public List<SavingsProduct> getOpenTodayProducts() {
-        return productDAO.findOpenTodayInMemory();
+        return productDAO.getAllActiveProducts(); // filter thêm tại View nếu cần
     }
 
     public SavingsProduct getById(int productId) {
-        return productDAO.findById(productId);
+        return productDAO.getProductById(productId);
     }
 
     // ── 7. Validation ────────────────────────────────────────────────────────
