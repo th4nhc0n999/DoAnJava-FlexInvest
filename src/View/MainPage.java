@@ -1,18 +1,24 @@
 package View;
 
+import Controller.NotificationController;
 import Model.AccountModel;
 import Utils.SessionManager;
 import View.customer.CustomerDashboardPanel;
-import View.customer.SavingsProductListPanel;
+import View.customer.MissionPanel;
+import View.customer.MoneyManagementPanel;
 import View.customer.MyInvestmentsPanel;
+import View.customer.SavingsProductListPanel;
+import View.customer.WalletPanel;
 import View.permission.PermissionManagementView;
-import View.staff.StaffDashboardPanel;
-import View.staff.DepositApprovalPanel;
-import View.staff.WithdrawApprovalPanel;
-import View.staff.EkycApprovalPanel;
 import View.staff.AdminDashboardPanel;
+import View.staff.DepositApprovalPanel;
+import View.staff.EkycApprovalPanel;
+import View.staff.MissionManagementPanel;
 import View.staff.SavingsProductPanel;
+import View.staff.StaffDashboardPanel;
+import View.staff.TransactionHistoryPanel;
 import View.staff.UserManagementPanel;
+import View.staff.WithdrawApprovalPanel;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -51,6 +57,9 @@ public class MainPage extends JFrame {
     private CustomerDashboardPanel  dashboardPanel;
     private SavingsProductListPanel productsPanel;
     private MyInvestmentsPanel      myInvestmentsPanel;
+    private WalletPanel             walletPanel;
+    private MoneyManagementPanel    moneyPanel;
+    private MissionPanel            missionPanel;
 
     // Lazy-init panels — Staff
     private StaffDashboardPanel     staffDashboardPanel;
@@ -62,17 +71,29 @@ public class MainPage extends JFrame {
     private static final String CARD_DASHBOARD   = "DASHBOARD";
     private static final String CARD_PRODUCTS    = "PRODUCTS";
     private static final String CARD_INVESTMENTS = "INVESTMENTS";
+    private static final String CARD_WALLET      = "WALLET";
+    private static final String CARD_MONEY       = "MONEY";
+    private static final String CARD_MISSION     = "MISSION";
     private static final String CARD_SETTINGS    = "SETTINGS";
+
+    // Notification
+    private final NotificationController notifCtrl = new NotificationController();
+    private JButton  bellBtn;
+    private JLabel   badgeLbl;
 
     // Lazy-init panels — Admin
     private AdminDashboardPanel     adminDashboardPanel;
     private SavingsProductPanel     adminProductsPanel;
     private UserManagementPanel     adminUsersPanel;
+    private TransactionHistoryPanel txHistoryPanel;
+    private MissionManagementPanel  missionMgmtPanel;
 
     // Panel ID constants — Admin
     private static final String CARD_ADMIN_DASH     = "ADMIN_DASH";
     private static final String CARD_ADMIN_PRODUCTS = "ADMIN_PRODUCTS";
     private static final String CARD_ADMIN_USERS    = "ADMIN_USERS";
+    private static final String CARD_ADMIN_TX       = "ADMIN_TX";
+    private static final String CARD_ADMIN_MISSION  = "ADMIN_MISSION";
 
     // Panel ID constants — Staff
     private static final String CARD_STAFF_DASH     = "STAFF_DASH";
@@ -141,14 +162,43 @@ public class MainPage extends JFrame {
         logo.setFont(new Font("Segoe UI", Font.BOLD, 20));
         logo.setForeground(Color.WHITE);
 
-        // Right — user info + logout
-        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 16, 14));
+        // Right — bell + user info + logout
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         right.setOpaque(false);
 
         String role = isAdmin ? "Admin" : isStaff ? "Staff" : "Thành viên";
         JLabel lblUser = new JLabel(currentAccount.getAccount().getUsername() + "  |  " + role);
         lblUser.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblUser.setForeground(new Color(200, 215, 235));
+
+        // ── Bell button with badge ──────────────────────────────────────────
+        JPanel bellWrapper = new JPanel(null);
+        bellWrapper.setOpaque(false);
+        bellWrapper.setPreferredSize(new Dimension(42, 42));
+
+        bellBtn = new JButton("🔔");
+        bellBtn.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+        bellBtn.setBackground(new Color(30, 65, 115));
+        bellBtn.setForeground(Color.WHITE);
+        bellBtn.setBorderPainted(false);
+        bellBtn.setFocusPainted(false);
+        bellBtn.setOpaque(true);
+        bellBtn.setBounds(0, 8, 36, 36);
+        bellBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        bellBtn.addActionListener(e -> openNotificationDialog());
+
+        badgeLbl = new JLabel("");
+        badgeLbl.setFont(new Font("Segoe UI", Font.BOLD, 9));
+        badgeLbl.setForeground(Color.WHITE);
+        badgeLbl.setBackground(new Color(239, 68, 68));
+        badgeLbl.setOpaque(true);
+        badgeLbl.setHorizontalAlignment(SwingConstants.CENTER);
+        badgeLbl.setBounds(20, 4, 18, 16);
+        badgeLbl.setBorder(BorderFactory.createEmptyBorder(1, 0, 1, 0));
+        badgeLbl.setVisible(false);
+
+        bellWrapper.add(bellBtn);
+        bellWrapper.add(badgeLbl);
 
         JButton btnLogout = styledBtn("Đăng xuất", new Color(220, 60, 60));
         btnLogout.addActionListener(e -> {
@@ -161,11 +211,44 @@ public class MainPage extends JFrame {
             }
         });
 
+        right.add(bellWrapper);
         right.add(lblUser);
         right.add(btnLogout);
         bar.add(logo, BorderLayout.WEST);
         bar.add(right, BorderLayout.EAST);
+
+        // Cập nhật badge ngay sau khi build
+        refreshNotificationBadge();
         return bar;
+    }
+
+    private void refreshNotificationBadge() {
+        if (isAdmin || isStaff) return;  // badge chỉ cho Customer
+        new SwingWorker<Integer, Void>() {
+            @Override protected Integer doInBackground() {
+                return notifCtrl.countUnread(currentAccount.getUser().getUserId());
+            }
+            @Override protected void done() {
+                try {
+                    int count = get();
+                    if (count > 0) {
+                        badgeLbl.setText(count > 99 ? "99+" : String.valueOf(count));
+                        badgeLbl.setVisible(true);
+                    } else {
+                        badgeLbl.setVisible(false);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }.execute();
+    }
+
+    private void openNotificationDialog() {
+        NotificationDialog.open(
+            this, bellBtn,
+            currentAccount.getUser().getUserId(),
+            notifCtrl,
+            this::refreshNotificationBadge  // callback sau khi đọc
+        );
     }
 
     // =========================================================================
@@ -203,7 +286,9 @@ public class MainPage extends JFrame {
             JPanel itemDashboard   = buildMenuItem("🏠  Dashboard",         CARD_DASHBOARD,   true);
             JPanel itemProducts    = buildMenuItem("📋  Gói Đầu Tư",        CARD_PRODUCTS,    false);
             JPanel itemInvestments = buildMenuItem("💼  Khoản Của Tôi",     CARD_INVESTMENTS, false);
-            JPanel itemSettings    = buildMenuItem("⚙  Cài đặt",           CARD_SETTINGS,    false);
+            JPanel itemWallet      = buildMenuItem("👛  Ví của tôi",         CARD_WALLET,      false);
+            JPanel itemMoney       = buildMenuItem("💳  Quản lý Tiền",       CARD_MONEY,       false);
+            JPanel itemMission     = buildMenuItem("🎯  Nhiệm vụ & Token",  CARD_MISSION,     false);
 
             side.add(itemDashboard);
             side.add(Box.createVerticalStrut(2));
@@ -211,7 +296,11 @@ public class MainPage extends JFrame {
             side.add(Box.createVerticalStrut(2));
             side.add(itemInvestments);
             side.add(Box.createVerticalStrut(2));
-            side.add(itemSettings);
+            side.add(itemWallet);
+            side.add(Box.createVerticalStrut(2));
+            side.add(itemMoney);
+            side.add(Box.createVerticalStrut(2));
+            side.add(itemMission);
 
             activeItem = itemDashboard;
             setActiveStyle(itemDashboard, true);
@@ -230,10 +319,12 @@ public class MainPage extends JFrame {
                 adminLbl.add(lbl, BorderLayout.CENTER);
                 side.add(adminLbl);
 
-                JPanel iAdminDash = buildMenuItem("📊  Tổng quan (Admin)", CARD_ADMIN_DASH,     false);
-                JPanel iAdminProd = buildMenuItem("📋  Quản lý Gói",       CARD_ADMIN_PRODUCTS, false);
-                JPanel iAdminUser = buildMenuItem("👥  Quản lý User",      CARD_ADMIN_USERS,    false);
-                JPanel itemPerm   = buildMenuItemCustom("🔒  Phân Quyền", e -> new PermissionManagementView());
+                JPanel iAdminDash   = buildMenuItem("📊  Tổng quan (Admin)",  CARD_ADMIN_DASH,    false);
+                JPanel iAdminProd   = buildMenuItem("📋  Quản lý Gói",       CARD_ADMIN_PRODUCTS,false);
+                JPanel iAdminUser   = buildMenuItem("👥  Quản lý User",      CARD_ADMIN_USERS,   false);
+                JPanel iAdminTx     = buildMenuItem("📊  Lịch sử GD hệ thống",CARD_ADMIN_TX,      false);
+                JPanel iAdminMission= buildMenuItem("🎯  Quản lý Nhiệm vụ", CARD_ADMIN_MISSION, false);
+                JPanel itemPerm     = buildMenuItemCustom("🔒  Phân Quyền", e -> new PermissionManagementView());
 
                 side.add(iAdminDash);
                 side.add(Box.createVerticalStrut(2));
@@ -241,12 +332,16 @@ public class MainPage extends JFrame {
                 side.add(Box.createVerticalStrut(2));
                 side.add(iAdminUser);
                 side.add(Box.createVerticalStrut(2));
+                side.add(iAdminTx);
+                side.add(Box.createVerticalStrut(2));
+                side.add(iAdminMission);
+                side.add(Box.createVerticalStrut(2));
                 side.add(itemPerm);
 
                 // Set default active for admin
                 activeItem = iAdminDash;
                 setActiveStyle(iAdminDash, true);
-                setActiveStyle(itemDashboard, false); // Turn off customer dash style
+                setActiveStyle(itemDashboard, false);
             }
         }
 
@@ -348,6 +443,24 @@ public class MainPage extends JFrame {
                     contentPane.add(myInvestmentsPanel, CARD_INVESTMENTS);
                 } else myInvestmentsPanel.loadData();
             }
+            case CARD_WALLET -> {
+                if (walletPanel == null) {
+                    walletPanel = new WalletPanel(currentAccount);
+                    contentPane.add(walletPanel, CARD_WALLET);
+                } else walletPanel.loadData();
+            }
+            case CARD_MONEY -> {
+                if (moneyPanel == null) {
+                    moneyPanel = new MoneyManagementPanel(currentAccount);
+                    contentPane.add(moneyPanel, CARD_MONEY);
+                }
+            }
+            case CARD_MISSION -> {
+                if (missionPanel == null) {
+                    missionPanel = new MissionPanel(currentAccount);
+                    contentPane.add(missionPanel, CARD_MISSION);
+                } else missionPanel.loadData();
+            }
             case CARD_SETTINGS -> { /* placeholder */ }
 
             // ── Admin panels ──────────────────────────────────────────────────
@@ -367,7 +480,19 @@ public class MainPage extends JFrame {
                 if (adminUsersPanel == null) {
                     adminUsersPanel = new UserManagementPanel(currentAccount);
                     contentPane.add(adminUsersPanel, CARD_ADMIN_USERS);
-                } else adminUsersPanel.loadData(); // Will throw an error if no reload method, wait I didn't add loadData() as public in UserManagementPanel? Wait, I didn't add it as public. Wait I can just do nothing or call loadUsers if I make it public. Let me replace this chunk with no reload for users if it's too complicated, or just add loadData() manually. Ah, I will just call it if it exists.
+                } else adminUsersPanel.loadData();
+            }
+            case CARD_ADMIN_TX -> {
+                if (txHistoryPanel == null) {
+                    txHistoryPanel = new TransactionHistoryPanel();
+                    contentPane.add(txHistoryPanel, CARD_ADMIN_TX);
+                } else txHistoryPanel.loadData();
+            }
+            case CARD_ADMIN_MISSION -> {
+                if (missionMgmtPanel == null) {
+                    missionMgmtPanel = new MissionManagementPanel();
+                    contentPane.add(missionMgmtPanel, CARD_ADMIN_MISSION);
+                } else missionMgmtPanel.loadData();
             }
 
             // ── Staff panels ──────────────────────────────────────────────────

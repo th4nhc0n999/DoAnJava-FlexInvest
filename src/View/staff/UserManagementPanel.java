@@ -63,7 +63,7 @@ public class UserManagementPanel extends JPanel {
 
         filterPanel.add(Box.createHorizontalStrut(16));
         filterPanel.add(new JLabel("KYC:"));
-        cbKycFilter = new JComboBox<>(new String[]{"All", "APPROVED", "PENDING", "REJECTED"});
+        cbKycFilter = new JComboBox<>(new String[]{"All", "APPROVED", "PENDING", "REJECTED", "UNSUBMITTED"});
         cbKycFilter.addActionListener(e -> applyFilters());
         filterPanel.add(cbKycFilter);
 
@@ -126,7 +126,10 @@ public class UserManagementPanel extends JPanel {
         historyPanel.setOpaque(false);
         historyPanel.add(new JLabel("Giao dịch gần đây"), BorderLayout.NORTH);
         
-        historyTableModel = new DefaultTableModel(new String[]{"Ngày", "Loại", "Số tiền"}, 0);
+        // FIX: cột đúng theo schema: created_at, type_code, amount
+        historyTableModel = new DefaultTableModel(new String[]{"Ngày", "Loại", "Số tiền"}, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+        };
         JTable historyTable = new JTable(historyTableModel);
         historyPanel.add(new JScrollPane(historyTable), BorderLayout.CENTER);
 
@@ -148,7 +151,9 @@ public class UserManagementPanel extends JPanel {
                 try {
                     allUsers = get();
                     applyFilters();
-                } catch (Exception e) {}
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         };
         worker.execute();
@@ -159,7 +164,7 @@ public class UserManagementPanel extends JPanel {
         tableModel.setRowCount(0);
         
         String roleFilter = (String) cbRoleFilter.getSelectedItem();
-        String kycFilter = (String) cbKycFilter.getSelectedItem();
+        String kycFilter  = (String) cbKycFilter.getSelectedItem();
 
         for (User u : allUsers) {
             String roleName = u.getRoleId() == 1 ? "Admin" : u.getRoleId() == 2 ? "Staff" : "Customer";
@@ -172,14 +177,21 @@ public class UserManagementPanel extends JPanel {
         }
     }
 
+    /** FIX: thêm IS_DELETED = 0 filter và dùng Oracle ROWNUM syntax. */
     private String getKycStatus(int userId) {
         String status = "UNSUBMITTED";
         try (Connection con = ConnectionOracle.getOracleConnection();
-             var ps = con.prepareStatement("SELECT verified_status FROM EKYC WHERE user_id=? ORDER BY created_at DESC")) {
+             var ps = con.prepareStatement(
+                 "SELECT verified_status FROM (" +
+                 "  SELECT verified_status FROM EKYC WHERE user_id = ? AND is_deleted = 0" +
+                 "  ORDER BY created_at DESC" +
+                 ") WHERE ROWNUM = 1")) {
             ps.setInt(1, userId);
             var rs = ps.executeQuery();
             if (rs.next()) status = rs.getString(1);
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            System.err.println("[UserManagementPanel.getKycStatus] " + e.getMessage());
+        }
         return status;
     }
 
@@ -201,24 +213,38 @@ public class UserManagementPanel extends JPanel {
         lblDetailKyc.setText("KYC: " + getKycStatus(userId));
 
         Wallet w = walletDAO.getByUserId(userId);
-        lblDetailWallet.setText("Số dư ví: " + (w != null ? String.format("%,.0f VNĐ", w.getAvailableBalance()) : "0 VNĐ"));
+        lblDetailWallet.setText("Số dư ví: " + (w != null
+            ? String.format("%,.0f VNĐ", w.getAvailableBalance()) : "0 VNĐ"));
 
         btnToggleStatus.setEnabled(true);
         btnToggleStatus.setText("ACTIVE".equals(selectedUser.getStatus()) ? "Khóa Tài Khoản" : "Mở Khóa");
 
-        // Load recent transactions
+        // FIX: dùng đúng tên cột theo schema: created_at, type_code, amount
+        // FIX: Oracle không hỗ trợ FETCH FIRST ... ROWS ONLY ở phiên bản cũ → dùng ROWNUM
         historyTableModel.setRowCount(0);
         if (w != null) {
             try (Connection con = ConnectionOracle.getOracleConnection();
-                 var ps = con.prepareStatement("SELECT transaction_date, transaction_type, amount FROM TRANSACTION WHERE wallet_id=? ORDER BY transaction_date DESC FETCH FIRST 5 ROWS ONLY")) {
+                 var ps = con.prepareStatement(
+                     "SELECT created_at, type_code, amount FROM (" +
+                     "  SELECT created_at, type_code, amount FROM TRANSACTION" +
+                     "  WHERE wallet_id = ? AND is_deleted = 0" +
+                     "  ORDER BY created_at DESC" +
+                     ") WHERE ROWNUM <= 5")) {
                 ps.setInt(1, w.getWalletId());
                 var rs = ps.executeQuery();
                 while (rs.next()) {
                     historyTableModel.addRow(new Object[]{
-                        rs.getDate(1), rs.getString(2), String.format("%,.0f", rs.getBigDecimal(3))
+                        rs.getTimestamp(1),
+                        rs.getString(2),
+                        String.format("%,.0f", rs.getBigDecimal(3))
                     });
                 }
-            } catch (Exception e) {}
+                if (historyTableModel.getRowCount() == 0) {
+                    historyTableModel.addRow(new Object[]{"—", "Chưa có giao dịch", "—"});
+                }
+            } catch (Exception e) {
+                System.err.println("[UserManagementPanel.showUserDetails] " + e.getMessage());
+            }
         }
     }
 

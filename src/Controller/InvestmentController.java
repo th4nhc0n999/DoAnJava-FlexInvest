@@ -70,11 +70,6 @@ public class InvestmentController {
     public BuyResult buyProduct(int userId, int productId, BigDecimal amount) {
 
         // ── Bước 1: Kiểm tra eKYC phải APPROVED ─────────────────────────────
-        List<Ekyc> kycList = ekycDAO.Pending(); // dùng API có sẵn để kiểm tra
-        // Lấy KYC mới nhất của user (approved)
-        boolean kycOk = false;
-        // Vì EkycDAO chỉ có Pending(), ta query trực tiếp qua method khác
-        // Sử dụng helper nội bộ:
         Ekyc kyc = getApprovedKyc(userId);
         if (kyc == null || !kyc.isApproved()) {
             return BuyResult.KYC_NOT_APPROVED;
@@ -135,6 +130,27 @@ public class InvestmentController {
         notifDAO.send(userId, title, body, "TRANSACTION");
 
         return BuyResult.SUCCESS;
+    }
+
+    // =========================================================================
+    //  1b. setPayoutMethod() — Lưu phương thức tất toán vào DB
+    // =========================================================================
+
+    /**
+     * Lưu phương thức tất toán cho một khoản đầu tư.
+     * Gọi ngay khi user thay đổi dropdown PT1/PT2/PT3 trong MyInvestmentsPanel.
+     *
+     * @param investmentId    ID khoản đầu tư
+     * @param payoutMethod    "PT1" | "PT2" | "PT3"
+     * @param targetProductId Gói đích rollover cho PT2 (null nếu PT1/PT3)
+     * @return true nếu lưu DB thành công (false nếu cột chưa có — best-effort)
+     */
+    public boolean setPayoutMethod(int investmentId, String payoutMethod, Integer targetProductId) {
+        if (investmentId <= 0 || payoutMethod == null) return false;
+        boolean ok = invDAO.setPayoutMethod(investmentId, payoutMethod, targetProductId);
+        System.out.printf("[setPayoutMethod] invId=%d method=%s target=%s → %s%n",
+            investmentId, payoutMethod, targetProductId, ok ? "OK" : "FAIL/BEST-EFFORT");
+        return ok;
     }
 
     // =========================================================================
@@ -285,29 +301,45 @@ public class InvestmentController {
      */
     public String runDailyBatch() {
         StringBuilder sb = new StringBuilder();
-        
+
         // 1. Chạy lãi suất hàng ngày cho Flex-Safe
         SavingsProduct flexSafe = getFlexSafe();
         if (flexSafe != null) {
             int flexCount = dailyFlexSafeAccrual(flexSafe.getProductId());
-            sb.append("- Đã cộng lãi ngày cho ").append(flexCount).append(" khoản Flex-Safe.\n");
+            sb.append("✔ Đã cộng lãi ngày cho ").append(flexCount).append(" khoản Flex-Safe.\n");
         } else {
-            sb.append("- Không tìm thấy gói Flex-Safe mặc định.\n");
+            sb.append("⚠ Không tìm thấy gói Flex-Safe mặc định.\n");
         }
 
-        // 2. Xử lý đáo hạn (Maturity)
+        // 2. Xử lý đáo hạn — đọc payout_method từ DB để tôn trọng lựa chọn của user
         List<Investment> matured = invDAO.getMaturedInvestmentsToday();
         int maturedCount = 0;
-        int failedCount = 0;
+        int failedCount  = 0;
         for (Investment inv : matured) {
-            // Mặc định gọi PT1 nếu chưa thiết lập
-            boolean ok = processMaturity(inv.getInvestmentId(), "1", flexSafe != null ? flexSafe.getProductId() : null);
+            String method = invDAO.getPayoutMethod(inv.getInvestmentId());   // đọc từ DB
+            Integer targetId = invDAO.getTargetProductId(inv.getInvestmentId());
+
+            // PT2 mà chưa chọn gói đích → fallback về cùng product cũ (rollover tại chỗ)
+            if ("PT2".equals(method) && targetId == null) {
+                targetId = inv.getProductId(); // giữ nguyên gói cũ thêm một kỳ
+            }
+            // PT1 mà chưa chọn gói đích → Flex-Safe
+            if ("PT1".equals(method) && targetId == null) {
+                targetId = (flexSafe != null) ? flexSafe.getProductId() : null;
+            }
+
+            // Chuyển đổi "PT1"→"1" để khớp với processMaturity()
+            String methodCode = method.replace("PT", "");
+            boolean ok = processMaturity(inv.getInvestmentId(), methodCode, targetId);
             if (ok) maturedCount++;
-            else failedCount++;
+            else    failedCount++;
         }
-        sb.append("- Đã tất toán thành công ").append(maturedCount).append(" khoản đáo hạn.\n");
+        sb.append("✔ Đã tất toán thành công ").append(maturedCount).append(" khoản đáo hạn.\n");
         if (failedCount > 0) {
-            sb.append("- Thất bại/Lỗi: ").append(failedCount).append(" khoản đáo hạn.\n");
+            sb.append("✖ Thất bại/Lỗi: ").append(failedCount).append(" khoản.\n");
+        }
+        if (matured.isEmpty()) {
+            sb.append("ℹ Không có khoản nào đáo hạn hôm nay.\n");
         }
 
         return sb.toString();

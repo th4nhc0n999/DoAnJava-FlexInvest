@@ -1,7 +1,6 @@
 package View.staff;
 
 import Controller.SavingsProductController;
-import DAO.InvestmentDAO;
 import Model.AccountModel;
 import Model.SavingsProduct;
 
@@ -11,7 +10,6 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 
 public class SavingsProductPanel extends JPanel {
@@ -105,28 +103,8 @@ public class SavingsProductPanel extends JPanel {
     public void loadData() {
         SwingWorker<List<SavingsProduct>, Void> worker = new SwingWorker<>() {
             @Override protected List<SavingsProduct> doInBackground() {
-                // Should add getAllProducts() to InvestmentDAO, reusing getAllActiveProducts logic
-                // For now, I'll use a local implementation or require adding it.
-                // Since we need ALL products (ACTIVE and INACTIVE), I'll query directly here for simplicity.
-                List<SavingsProduct> list = new java.util.ArrayList<>();
-                String sql = "SELECT * FROM SAVINGS_PRODUCT WHERE is_deleted=0 ORDER BY product_id";
-                try (java.sql.Connection con = ConnectDB.ConnectionOracle.getOracleConnection();
-                     java.sql.PreparedStatement ps = con.prepareStatement(sql);
-                     java.sql.ResultSet rs = ps.executeQuery()) {
-                    while(rs.next()) {
-                        SavingsProduct p = new SavingsProduct();
-                        p.setProductId(rs.getInt("product_id"));
-                        p.setProductName(rs.getString("product_name"));
-                        p.setInterestRate(rs.getBigDecimal("interest_rate"));
-                        p.setTerm(rs.getInt("term"));
-                        p.setMinInvestmentAmount(rs.getBigDecimal("min_investment_amount"));
-                        p.setMaxInvestmentAmount(rs.getBigDecimal("max_investment_amount"));
-                        p.setStatus(rs.getString("status"));
-                        p.setCurrency(rs.getString("currency"));
-                        list.add(p);
-                    }
-                } catch(Exception e) { e.printStackTrace(); }
-                return list;
+                // FIX: dùng controller đã có sẵn thay vì raw SQL trong View
+                return spController.getAllProducts();
             }
 
             @Override protected void done() {
@@ -134,17 +112,21 @@ public class SavingsProductPanel extends JPanel {
                     products = get();
                     tableModel.setRowCount(0);
                     for (SavingsProduct p : products) {
-                        String minMax = String.format("%,.0f - %s", 
-                            p.getMinInvestmentAmount(), 
-                            p.getMaxInvestmentAmount() != null ? String.format("%,.0f", p.getMaxInvestmentAmount()) : "∞");
+                        String minMax = String.format("%,.0f - %s",
+                            p.getMinInvestmentAmount(),
+                            p.getMaxInvestmentAmount() != null
+                                ? String.format("%,.0f", p.getMaxInvestmentAmount()) : "∞");
                         String type = "FlexToken".equalsIgnoreCase(p.getCurrency()) ? "VIP (FlexToken)" : "Thường";
                         tableModel.addRow(new Object[]{
-                            p.getProductId(), p.getProductName(), p.getInterestRate() + "%", 
+                            p.getProductId(), p.getProductName(),
+                            p.getInterestRate() + "%",
                             p.getTerm() == 0 ? "Flex-Safe" : p.getTerm() + " ngày",
                             minMax, type, p.getStatus()
                         });
                     }
-                } catch (Exception e) {}
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         };
         worker.execute();
@@ -166,10 +148,12 @@ public class SavingsProductPanel extends JPanel {
             return;
         }
         SavingsProduct p = products.get(r);
-        if (spController.toggleActive(p.getProductId(), p.getStatus())) {
+        // FIX: toggleActive nhận boolean (true = ACTIVE), không phải String
+        boolean currentlyActive = "ACTIVE".equalsIgnoreCase(p.getStatus());
+        if (spController.toggleActive(p.getProductId(), !currentlyActive)) {
             loadData();
         } else {
-            JOptionPane.showMessageDialog(this, "Lỗi khi cập nhật trạng thái.");
+            JOptionPane.showMessageDialog(this, "Lỗi khi cập nhật trạng thái (có thể gói đang có người dùng ACTIVE).");
         }
     }
 

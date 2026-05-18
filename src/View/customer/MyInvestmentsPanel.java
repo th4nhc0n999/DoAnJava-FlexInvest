@@ -378,11 +378,37 @@ public class MyInvestmentsPanel extends JPanel {
             combo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
             combo.addActionListener(e -> {
                 int idx = combo.getSelectedIndex();
-                if (idx >= 0 && currentRow < investments.size()) {
-                    int invId = investments.get(currentRow).getInvestmentId();
-                    payoutMethods.put(invId, PAYOUT_CODES[idx]);
-                    tableModel.setValueAt(PAYOUT_CODES[idx], currentRow, 5);
-                }
+                if (idx < 0 || investments == null || currentRow >= investments.size()) return;
+
+                Investment inv  = investments.get(currentRow);
+                String newCode  = PAYOUT_CODES[idx];
+                int invId       = inv.getInvestmentId();
+
+                // Dừng editing trước khi mở dialog (tránh block EDT)
+                SwingUtilities.invokeLater(() -> {
+                    if ("PT2".equals(newCode)) {
+                        // Hiện dialog chọn gói đích cho PT2
+                        Integer targetId = showTargetProductDialog(inv);
+                        payoutMethods.put(invId, newCode);
+                        tableModel.setValueAt(newCode, currentRow, 5);
+                        // Persist vào DB (best-effort)
+                        new SwingWorker<Void, Void>() {
+                            @Override protected Void doInBackground() {
+                                controller.setPayoutMethod(invId, newCode, targetId);
+                                return null;
+                            }
+                        }.execute();
+                    } else {
+                        payoutMethods.put(invId, newCode);
+                        tableModel.setValueAt(newCode, currentRow, 5);
+                        new SwingWorker<Void, Void>() {
+                            @Override protected Void doInBackground() {
+                                controller.setPayoutMethod(invId, newCode, null);
+                                return null;
+                            }
+                        }.execute();
+                    }
+                });
             });
         }
 
@@ -399,6 +425,37 @@ public class MyInvestmentsPanel extends JPanel {
             int idx = combo.getSelectedIndex();
             return idx >= 0 ? PAYOUT_CODES[idx] : "PT1";
         }
+    }
+
+    /**
+     * Hiện dialog chọn gói đích khi user chọn PT2 (rollover gốc, rút lãi).
+     * @return product_id được chọn, hoặc null nếu cancel / chưa chọn
+     */
+    private Integer showTargetProductDialog(Investment inv) {
+        if (products == null || products.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                "Không tải được danh sách gói sản phẩm.",
+                "PT2 — Chọn gói đích", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+
+        // Loại trừ các gói Flex-Token khỏi danh sách (trừ khi user đã có FlexToken)
+        String[] names = products.stream()
+            .map(p -> p.getProductName() + " (" + p.getTerm() + " ngày, " + p.getInterestRate().multiply(new BigDecimal("100")).setScale(1, java.math.RoundingMode.HALF_UP) + "%/năm)")
+            .toArray(String[]::new);
+
+        String selected = (String) JOptionPane.showInputDialog(
+            this,
+            "<html><b>PT2 — Chọn gói đích để rollover phần gốc:</b><br/>"
+            + "Phần lãi sẽ tự động rút về tài khoản ngân hàng liên kết.<br/>"
+            + "Nếu không chọn, hệ thống sẽ giữ nguyên gói cũ thêm một kỳ.</html>",
+            "PT2 — Chọn gói rollover",
+            JOptionPane.PLAIN_MESSAGE, null,
+            names, names[0]);
+
+        if (selected == null) return null; // user cancel
+        int idx = java.util.Arrays.asList(names).indexOf(selected);
+        return idx >= 0 ? products.get(idx).getProductId() : null;
     }
 
     // =========================================================================

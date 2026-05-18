@@ -30,10 +30,11 @@ import java.util.List;
  */
 public class WalletController {
 
-    private final WalletDAO      walletDAO  = new WalletDAO();
-    private final RequestDAO     reqDAO     = new RequestDAO();
-    private final MissionDAO     missionDAO = new MissionDAO();
-    private final NotificationDAO notifDAO  = new NotificationDAO();
+    private final WalletDAO       walletDAO   = new WalletDAO();
+    private final RequestDAO      reqDAO      = new RequestDAO();
+    private final MissionDAO      missionDAO  = new MissionDAO();
+    private final NotificationDAO notifDAO    = new NotificationDAO();
+    private final MissionController missionCtrl = new MissionController();
 
     // =========================================================================
     //  Enum kết quả — dùng chung cho Deposit + Withdraw
@@ -144,8 +145,15 @@ public class WalletController {
         // Lấy userId để trigger mission & notification
         int userId = getUserIdByDeposit(d);
         if (userId > 0) {
-            // TODO: trigger mission check sau khi MissionDAO.checkDepositMission() được implement
-            // try { missionDAO.checkDepositMission(userId); } catch (Exception ignored) {}
+            // Trigger mission check (MissionController.onDeposit)
+            try {
+                BigDecimal amount = getAmountFromDeposit(d);
+                if (amount != null && amount.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                    missionCtrl.onDeposit(userId, amount);
+                }
+            } catch (Exception e) {
+                System.err.println("[WalletController] MissionController.onDeposit error: " + e.getMessage());
+            }
 
             // Thông báo
             notifDAO.send(userId,
@@ -313,5 +321,13 @@ public class WalletController {
     private int getWalletIdFromTransaction(int txId) {
         Transaction tx = walletDAO.getTransactionById(txId);
         return tx != null ? tx.getWalletId() : -1;
+    }
+
+    /** Lấy số tiền từ Deposit (qua transaction). */
+    private java.math.BigDecimal getAmountFromDeposit(Deposit d) {
+        try {
+            Transaction tx = walletDAO.getTransactionById(d.getTransactionId());
+            return tx != null ? tx.getAmount() : null;
+        } catch (Exception e) { return null; }
     }
 }
