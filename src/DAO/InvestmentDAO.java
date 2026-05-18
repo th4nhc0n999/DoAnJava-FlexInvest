@@ -390,6 +390,90 @@ public class InvestmentDAO {
         return false;
     }
 
+    /**
+     * Lưu phương thức tất toán và gói đích (nếu PT2) vào DB.
+     * Cột payout_method và target_product_id cần tồn tại trong bảng INVESTMENT.
+     * Nếu bảng chưa có cột → method trả về false (best-effort, không crash).
+     *
+     * @param investmentId    ID khoản đầu tư
+     * @param payoutMethod    "PT1", "PT2", "PT3"
+     * @param targetProductId ID gói đích cho PT2 rollover (null nếu PT1/PT3)
+     * @return true nếu cập nhật thành công
+     */
+    public boolean setPayoutMethod(int investmentId, String payoutMethod, Integer targetProductId) {
+        // Thử cập nhật cả payout_method lẫn target_product_id
+        try (Connection con = ConnectionOracle.getOracleConnection()) {
+            String sql;
+            if (targetProductId != null) {
+                sql = "UPDATE INVESTMENT SET payout_method = ?, target_product_id = ? " +
+                      "WHERE investment_id = ? AND is_deleted = 0";
+                try (PreparedStatement ps = con.prepareStatement(sql)) {
+                    ps.setString(1, payoutMethod);
+                    ps.setInt(2, targetProductId);
+                    ps.setInt(3, investmentId);
+                    return ps.executeUpdate() > 0;
+                }
+            } else {
+                sql = "UPDATE INVESTMENT SET payout_method = ?, target_product_id = NULL " +
+                      "WHERE investment_id = ? AND is_deleted = 0";
+                try (PreparedStatement ps = con.prepareStatement(sql)) {
+                    ps.setString(1, payoutMethod);
+                    ps.setInt(2, investmentId);
+                    return ps.executeUpdate() > 0;
+                }
+            }
+        } catch (Exception e) {
+            // Cột payout_method có thể chưa có trong schema cũ — ghi log, không crash
+            System.err.println("[InvestmentDAO.setPayoutMethod] " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Đọc payout_method đã lưu từ DB (dùng trong runDailyBatch để tôn trọng lựa chọn của user).
+     * Trả về "PT3" (rút toàn bộ) nếu chưa thiết lập hoặc cột không tồn tại.
+     *
+     * @return "PT1" | "PT2" | "PT3" (không bao giờ null)
+     */
+    public String getPayoutMethod(int investmentId) {
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(
+                 "SELECT payout_method, target_product_id FROM INVESTMENT WHERE investment_id = ?")) {
+            ps.setInt(1, investmentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String method = rs.getString("payout_method");
+                    return (method != null && !method.isBlank()) ? method : "PT3";
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.getPayoutMethod] " + e.getMessage());
+        }
+        return "PT3"; // fallback an toàn: rút về ví
+    }
+
+    /**
+     * Đọc target_product_id đã lưu (dùng cho PT2 rollover).
+     * @return product_id hoặc null nếu chưa chọn / cột không có
+     */
+    public Integer getTargetProductId(int investmentId) {
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(
+                 "SELECT target_product_id FROM INVESTMENT WHERE investment_id = ?")) {
+            ps.setInt(1, investmentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    int val = rs.getInt("target_product_id");
+                    return rs.wasNull() ? null : val;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.getTargetProductId] " + e.getMessage());
+        }
+        return null;
+    }
+
+
     // =========================================================================
     //  PAYOUT
     // =========================================================================
@@ -476,4 +560,55 @@ public class InvestmentDAO {
         }
         return -1;
     }
+
+    // =========================================================================
+    //  Admin queries
+    // =========================================================================
+
+    /** Toàn bộ Investment trong hệ thống (Admin — không lọc theo user). */
+    public List<Investment> getAllInvestments() {
+        List<Investment> list = new ArrayList<>();
+        String sql = "SELECT * FROM INVESTMENT WHERE is_deleted = 0 ORDER BY investment_id DESC";
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(mapInvestment(rs));
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.getAllInvestments] " + e.getMessage());
+        }
+        return list;
+    }
+
+    /** Lọc Investment theo status (ACTIVE / COMPLETED / REDEEMED). */
+    public List<Investment> getAllInvestmentsByStatus(String status) {
+        List<Investment> list = new ArrayList<>();
+        String sql = "SELECT * FROM INVESTMENT WHERE status = ? AND is_deleted = 0 ORDER BY investment_id DESC";
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, status);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapInvestment(rs));
+            }
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.getAllInvestmentsByStatus] " + e.getMessage());
+        }
+        return list;
+    }
+
+    /** Lọc Investment theo productId. */
+    public List<Investment> getAllInvestmentsByProduct(int productId) {
+        List<Investment> list = new ArrayList<>();
+        String sql = "SELECT * FROM INVESTMENT WHERE product_id = ? AND is_deleted = 0 ORDER BY investment_id DESC";
+        try (Connection con = ConnectionOracle.getOracleConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapInvestment(rs));
+            }
+        } catch (Exception e) {
+            System.err.println("[InvestmentDAO.getAllInvestmentsByProduct] " + e.getMessage());
+        }
+        return list;
+    }
 }
+

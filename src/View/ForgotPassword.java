@@ -6,174 +6,395 @@ import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
 
+/**
+ * ForgotPassword — luồng 3 bước:
+ *  Step 1: Nhập email → sinh OTP (giả lập hiện trong dialog)
+ *  Step 2: Nhập OTP 6 chữ số (giao diện giống OtpDialog)
+ *  Step 3: Nhập mật khẩu mới + xác nhận → lưu DB
+ */
 public class ForgotPassword extends JFrame {
 
-    // === Bước 1: nhập email ===
-    private JPanel      pnlStep1;
-    private JLabel      lblEmailTitle;
-    private JLabel      lblEmailSub;
-    private JLabel      lblEmail;
-    private JTextField  txtEmail;
-    private JButton     btnNext;
-    private JLabel      lblBackToLogin1;
-
-    // === Bước 2: nhập mật khẩu mới ===
-    private JPanel         pnlStep2;
-    private JLabel         lblResetTitle;
-    private JLabel         lblResetSub;
-    private JLabel         lblNewPass;
-    private JPasswordField txtNewPass;
-    private JLabel         lblConfirmPass;
-    private JPasswordField txtConfirmPass;
-    private JButton        btnReset;
-    private JLabel         lblBackToLogin2;
-
-    private JPanel     pnlContent;
-    private CardLayout cardLayout;
-
-    // === Màu sắc (đồng bộ LoginForm) ===
+    // ── Màu sắc ──────────────────────────────────────────────────────────────
     private final Color BLUE     = new Color(0, 162, 232);
+    private final Color NAVY     = new Color(15, 40, 80);
     private final Color GRAY_TXT = new Color(100, 100, 100);
     private final Color GRAY_BDR = new Color(200, 200, 200);
     private final Color PH_COLOR = new Color(180, 180, 180);
+    private final Color GREEN    = new Color(16, 185, 129);
 
     private static final String PH_EMAIL    = "Nhập email đã đăng ký";
     private static final String PH_PASSWORD = "Nhập mật khẩu mới";
     private static final String PH_CONFIRM  = "Nhập lại mật khẩu mới";
 
+    // ── Controller ───────────────────────────────────────────────────────────
     private final ForgotPasswordController controller = new ForgotPasswordController();
 
-    // userId tìm được ở bước 1, dùng lại ở bước 2
-    private String foundUserId;
+    // ── Card layout ──────────────────────────────────────────────────────────
+    private JPanel     pnlContent;
+    private CardLayout cardLayout;
+
+    // ── Step 1: Email ─────────────────────────────────────────────────────────
+    private JTextField txtEmail;
+    private JButton    btnSendOtp;
+
+    // ── Step 2: OTP ───────────────────────────────────────────────────────────
+    private JTextField[] otpCells = new JTextField[6];
+    private JButton      btnVerifyOtp;
+    private JButton      btnResendOtp;
+    private JLabel       lblOtpHint;
+
+    // ── Step 3: Mật khẩu mới ─────────────────────────────────────────────────
+    private JPasswordField txtNewPass;
+    private JPasswordField txtConfirmPass;
+    private JButton        btnReset;
 
     public ForgotPassword() {
         initComponents();
-        styleComponents();
-        addListeners();
         setVisible(true);
     }
 
+    // =========================================================================
+    //  Build UI
+    // =========================================================================
+
     private void initComponents() {
-        setTitle("FlexInvest - Quên mật khẩu");
+        setTitle("FlexInvest — Quên mật khẩu");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(480, 420);
+        setSize(480, 440);
         setLocationRelativeTo(null);
         setResizable(false);
-
-        JPanel pnlMain = new JPanel(new BorderLayout());
-        pnlMain.setBackground(Color.WHITE);
-        setContentPane(pnlMain);
 
         cardLayout = new CardLayout();
         pnlContent = new JPanel(cardLayout);
         pnlContent.setBackground(Color.WHITE);
 
-        // ── Bước 1 ──────────────────────────────────────────────────────────
-        pnlStep1 = new JPanel();
-        pnlStep1.setBackground(Color.WHITE);
-        pnlStep1.setLayout(new BoxLayout(pnlStep1, BoxLayout.Y_AXIS));
-        pnlStep1.setBorder(new EmptyBorder(40, 50, 30, 50));
+        pnlContent.add(buildStep1(), "STEP1");
+        pnlContent.add(buildStep2(), "STEP2");
+        pnlContent.add(buildStep3(), "STEP3");
 
-        lblEmailTitle = new JLabel("Quên mật khẩu?");
-        lblEmailSub   = new JLabel("Nhập email đã đăng ký để đặt lại mật khẩu.");
-        lblEmail      = new JLabel("Email");
-        txtEmail      = new JTextField();
-        btnNext       = new JButton("Tiếp theo");
-        lblBackToLogin1 = new JLabel("<html><u>Quay lại đăng nhập</u></html>");
-
-        pnlStep1.add(lblEmailTitle);
-        pnlStep1.add(Box.createVerticalStrut(6));
-        pnlStep1.add(lblEmailSub);
-        pnlStep1.add(Box.createVerticalStrut(30));
-        pnlStep1.add(lblEmail);
-        pnlStep1.add(Box.createVerticalStrut(6));
-        pnlStep1.add(txtEmail);
-        pnlStep1.add(Box.createVerticalStrut(20));
-        pnlStep1.add(btnNext);
-        pnlStep1.add(Box.createVerticalStrut(16));
-        pnlStep1.add(lblBackToLogin1);
-
-        // ── Bước 2 ──────────────────────────────────────────────────────────
-        pnlStep2 = new JPanel();
-        pnlStep2.setBackground(Color.WHITE);
-        pnlStep2.setLayout(new BoxLayout(pnlStep2, BoxLayout.Y_AXIS));
-        pnlStep2.setBorder(new EmptyBorder(40, 50, 30, 50));
-
-        lblResetTitle   = new JLabel("Đặt lại mật khẩu");
-        lblResetSub     = new JLabel("Nhập mật khẩu mới cho tài khoản của bạn.");
-        lblNewPass      = new JLabel("Mật khẩu mới");
-        txtNewPass      = new JPasswordField();
-        lblConfirmPass  = new JLabel("Xác nhận mật khẩu");
-        txtConfirmPass  = new JPasswordField();
-        btnReset        = new JButton("Đổi mật khẩu");
-        lblBackToLogin2 = new JLabel("<html><u>Quay lại đăng nhập</u></html>");
-
-        pnlStep2.add(lblResetTitle);
-        pnlStep2.add(Box.createVerticalStrut(6));
-        pnlStep2.add(lblResetSub);
-        pnlStep2.add(Box.createVerticalStrut(24));
-        pnlStep2.add(lblNewPass);
-        pnlStep2.add(Box.createVerticalStrut(6));
-        pnlStep2.add(txtNewPass);
-        pnlStep2.add(Box.createVerticalStrut(16));
-        pnlStep2.add(lblConfirmPass);
-        pnlStep2.add(Box.createVerticalStrut(6));
-        pnlStep2.add(txtConfirmPass);
-        pnlStep2.add(Box.createVerticalStrut(20));
-        pnlStep2.add(btnReset);
-        pnlStep2.add(Box.createVerticalStrut(16));
-        pnlStep2.add(lblBackToLogin2);
-
-        pnlContent.add(pnlStep1, "STEP1");
-        pnlContent.add(pnlStep2, "STEP2");
-        pnlMain.add(pnlContent, BorderLayout.CENTER);
+        setContentPane(pnlContent);
     }
 
-    private void styleComponents() {
-        Font titleFont = new Font("Segoe UI", Font.BOLD, 20);
-        Font subFont   = new Font("Segoe UI", Font.PLAIN, 13);
-        Font labelFont = new Font("Segoe UI", Font.PLAIN, 13);
+    // ── Step 1: nhập email ────────────────────────────────────────────────────
+    private JPanel buildStep1() {
+        JPanel p = stepPanel();
 
-        // Bước 1
-        lblEmailTitle.setFont(titleFont);
-        lblEmailTitle.setForeground(Color.BLACK);
-        lblEmailTitle.setAlignmentX(LEFT_ALIGNMENT);
+        // Header
+        p.add(header("Quên mật khẩu?", "Nhập email để nhận mã OTP xác minh."));
+        p.add(Box.createVerticalStrut(28));
 
-        lblEmailSub.setFont(subFont);
-        lblEmailSub.setForeground(GRAY_TXT);
-        lblEmailSub.setAlignmentX(LEFT_ALIGNMENT);
-
-        styleLabel(lblEmail, labelFont);
+        // Email field
+        p.add(fieldLabel("Email"));
+        p.add(Box.createVerticalStrut(6));
+        txtEmail = new JTextField();
         styleField(txtEmail);
         setPlaceholder(txtEmail, PH_EMAIL);
-        styleButton(btnNext);
-        styleBackLink(lblBackToLogin1);
+        p.add(txtEmail);
+        p.add(Box.createVerticalStrut(20));
 
-        // Bước 2
-        lblResetTitle.setFont(titleFont);
-        lblResetTitle.setForeground(Color.BLACK);
-        lblResetTitle.setAlignmentX(LEFT_ALIGNMENT);
+        // Button
+        btnSendOtp = makeButton("Gửi mã OTP");
+        btnSendOtp.addActionListener(e -> onSendOtp());
+        p.add(btnSendOtp);
+        p.add(Box.createVerticalStrut(14));
+        p.add(backLink("Quay lại đăng nhập", () -> dispose()));
 
-        lblResetSub.setFont(subFont);
-        lblResetSub.setForeground(GRAY_TXT);
-        lblResetSub.setAlignmentX(LEFT_ALIGNMENT);
-
-        styleLabel(lblNewPass, labelFont);
-        styleField(txtNewPass);
-        setPasswordPlaceholder(txtNewPass, PH_PASSWORD);
-
-        styleLabel(lblConfirmPass, labelFont);
-        styleField(txtConfirmPass);
-        setPasswordPlaceholder(txtConfirmPass, PH_CONFIRM);
-
-        styleButton(btnReset);
-        styleBackLink(lblBackToLogin2);
+        return p;
     }
 
-    private void styleLabel(JLabel l, Font f) {
-        l.setFont(f);
+    // ── Step 2: nhập OTP ─────────────────────────────────────────────────────
+    private JPanel buildStep2() {
+        JPanel p = stepPanel();
+
+        p.add(header("Nhập mã OTP", "Mã 6 chữ số đã được hiển thị trong hộp thoại."));
+        p.add(Box.createVerticalStrut(24));
+
+        // 6 ô OTP
+        JPanel otpRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
+        otpRow.setOpaque(false);
+        otpRow.setAlignmentX(LEFT_ALIGNMENT);
+        Font cellFont = new Font("Segoe UI", Font.BOLD, 20);
+        for (int i = 0; i < 6; i++) {
+            JTextField tf = new JTextField(1);
+            tf.setFont(cellFont);
+            tf.setHorizontalAlignment(JTextField.CENTER);
+            tf.setPreferredSize(new Dimension(52, 58));
+            tf.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(GRAY_BDR, 2, true),
+                new EmptyBorder(0, 0, 0, 0)));
+            tf.setBackground(new Color(248, 250, 253));
+
+            final int idx = i;
+            tf.addKeyListener(new KeyAdapter() {
+                @Override public void keyTyped(KeyEvent e) {
+                    if (!Character.isDigit(e.getKeyChar())) { e.consume(); return; }
+                    tf.setText("");
+                    SwingUtilities.invokeLater(() -> {
+                        if (idx < 5) otpCells[idx + 1].requestFocus();
+                    });
+                }
+                @Override public void keyPressed(KeyEvent e) {
+                    if (e.getKeyCode() == KeyEvent.VK_BACK_SPACE
+                            && tf.getText().isEmpty() && idx > 0) {
+                        otpCells[idx - 1].requestFocus();
+                    }
+                }
+            });
+            tf.addFocusListener(new FocusAdapter() {
+                public void focusGained(FocusEvent e) {
+                    tf.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(BLUE, 2, true),
+                        new EmptyBorder(0, 0, 0, 0)));
+                }
+                public void focusLost(FocusEvent e) {
+                    tf.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(GRAY_BDR, 2, true),
+                        new EmptyBorder(0, 0, 0, 0)));
+                }
+            });
+            otpCells[i] = tf;
+            otpRow.add(tf);
+        }
+        p.add(otpRow);
+        p.add(Box.createVerticalStrut(6));
+
+        lblOtpHint = new JLabel("Demo: xem mã OTP trong hộp thoại vừa hiện.");
+        lblOtpHint.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblOtpHint.setForeground(new Color(140, 145, 160));
+        lblOtpHint.setAlignmentX(LEFT_ALIGNMENT);
+        p.add(lblOtpHint);
+        p.add(Box.createVerticalStrut(20));
+
+        btnVerifyOtp = makeButton("Xác nhận OTP");
+        btnVerifyOtp.addActionListener(e -> onVerifyOtp());
+        p.add(btnVerifyOtp);
+        p.add(Box.createVerticalStrut(10));
+
+        btnResendOtp = new JButton("<html><u>Gửi lại mã OTP</u></html>");
+        btnResendOtp.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btnResendOtp.setForeground(BLUE);
+        btnResendOtp.setBackground(Color.WHITE);
+        btnResendOtp.setBorderPainted(false);
+        btnResendOtp.setFocusPainted(false);
+        btnResendOtp.setOpaque(false);
+        btnResendOtp.setAlignmentX(LEFT_ALIGNMENT);
+        btnResendOtp.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnResendOtp.addActionListener(e -> onResendOtp());
+        p.add(btnResendOtp);
+        p.add(Box.createVerticalStrut(6));
+        p.add(backLink("Quay lại", () -> cardLayout.show(pnlContent, "STEP1")));
+
+        return p;
+    }
+
+    // ── Step 3: mật khẩu mới ─────────────────────────────────────────────────
+    private JPanel buildStep3() {
+        JPanel p = stepPanel();
+
+        p.add(header("Đặt lại mật khẩu", "Nhập mật khẩu mới cho tài khoản của bạn."));
+        p.add(Box.createVerticalStrut(24));
+
+        p.add(fieldLabel("Mật khẩu mới"));
+        p.add(Box.createVerticalStrut(6));
+        txtNewPass = new JPasswordField();
+        styleField(txtNewPass);
+        setPasswordPlaceholder(txtNewPass, PH_PASSWORD);
+        p.add(txtNewPass);
+        p.add(Box.createVerticalStrut(14));
+
+        p.add(fieldLabel("Xác nhận mật khẩu"));
+        p.add(Box.createVerticalStrut(6));
+        txtConfirmPass = new JPasswordField();
+        styleField(txtConfirmPass);
+        setPasswordPlaceholder(txtConfirmPass, PH_CONFIRM);
+        p.add(txtConfirmPass);
+        p.add(Box.createVerticalStrut(20));
+
+        btnReset = makeButton("Đổi mật khẩu");
+        btnReset.setBackground(GREEN);
+        btnReset.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { btnReset.setBackground(GREEN.darker()); }
+            public void mouseExited(MouseEvent e)  { btnReset.setBackground(GREEN); }
+        });
+        btnReset.addActionListener(e -> onReset());
+        p.add(btnReset);
+        p.add(Box.createVerticalStrut(14));
+        p.add(backLink("Quay lại đăng nhập", () -> dispose()));
+
+        return p;
+    }
+
+    // =========================================================================
+    //  Actions
+    // =========================================================================
+
+    private void onSendOtp() {
+        String email = getField(txtEmail, PH_EMAIL);
+        if (email.isEmpty()) {
+            warn("Vui lòng nhập địa chỉ email!");
+            return;
+        }
+
+        btnSendOtp.setEnabled(false);
+        btnSendOtp.setText("Đang xử lý...");
+        SwingWorker<String, Void> w = new SwingWorker<>() {
+            @Override protected String doInBackground() {
+                return controller.sendOtp(email);
+            }
+            @Override protected void done() {
+                try {
+                    String otp = get();
+                    if (otp == null) {
+                        error("Email không tồn tại hoặc tài khoản bị khóa!");
+                    } else {
+                        // Giả lập gửi mail: hiện OTP trong dialog
+                        JOptionPane.showMessageDialog(ForgotPassword.this,
+                            "<html><b>📧 Mã OTP của bạn là:</b><br/><br/>"
+                            + "<span style='font-size:24pt; color:#0066CC; letter-spacing:6px'><b>" + otp + "</b></span><br/><br/>"
+                            + "<i>(Trong hệ thống thật, OTP sẽ gửi qua email)</i></html>",
+                            "Mã OTP xác minh", JOptionPane.INFORMATION_MESSAGE);
+                        // Chuyển sang bước 2
+                        otpCells[0].requestFocus();
+                        cardLayout.show(pnlContent, "STEP2");
+                        setSize(480, 460);
+                        setLocationRelativeTo(null);
+                    }
+                } catch (Exception ex) {
+                    error("Lỗi hệ thống: " + ex.getMessage());
+                } finally {
+                    btnSendOtp.setEnabled(true);
+                    btnSendOtp.setText("Gửi mã OTP");
+                }
+            }
+        };
+        w.execute();
+    }
+
+    private void onVerifyOtp() {
+        StringBuilder sb = new StringBuilder();
+        for (JTextField c : otpCells) sb.append(c.getText().trim());
+        if (sb.length() < 6) {
+            warn("Vui lòng nhập đủ 6 chữ số OTP!");
+            otpCells[0].requestFocus();
+            return;
+        }
+
+        if (!controller.verifyOtp(sb.toString())) {
+            error("Mã OTP không đúng! Vui lòng kiểm tra lại.");
+            // Xoá và focus lại ô đầu
+            for (JTextField c : otpCells) c.setText("");
+            otpCells[0].requestFocus();
+            return;
+        }
+
+        // OTP đúng → chuyển sang bước 3
+        cardLayout.show(pnlContent, "STEP3");
+        setSize(480, 460);
+        setLocationRelativeTo(null);
+    }
+
+    private void onResendOtp() {
+        // Quay lại bước 1 để nhập lại email / gửi lại OTP
+        for (JTextField c : otpCells) c.setText("");
+        cardLayout.show(pnlContent, "STEP1");
+        setSize(480, 440);
+        setLocationRelativeTo(null);
+        // Tự động trigger lại gửi OTP với email cũ
+        String email = getField(txtEmail, PH_EMAIL);
+        if (!email.isEmpty()) onSendOtp();
+    }
+
+    private void onReset() {
+        String newPass = getPwd(txtNewPass, PH_PASSWORD);
+        String confirm = getPwd(txtConfirmPass, PH_CONFIRM);
+
+        if (newPass.isEmpty() || confirm.isEmpty()) {
+            warn("Vui lòng nhập đầy đủ mật khẩu!");
+            return;
+        }
+        if (newPass.length() < 6) {
+            warn("Mật khẩu phải có ít nhất 6 ký tự!");
+            return;
+        }
+        if (!newPass.equals(confirm)) {
+            error("Mật khẩu xác nhận không khớp!");
+            return;
+        }
+
+        btnReset.setEnabled(false);
+        btnReset.setText("Đang lưu...");
+        SwingWorker<Boolean, Void> w = new SwingWorker<>() {
+            @Override protected Boolean doInBackground() {
+                return controller.resetPassword(newPass);
+            }
+            @Override protected void done() {
+                try {
+                    if (get()) {
+                        JOptionPane.showMessageDialog(ForgotPassword.this,
+                            "✅ Đổi mật khẩu thành công!\nVui lòng đăng nhập lại.",
+                            "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                        dispose();
+                    } else {
+                        error("Đổi mật khẩu thất bại, vui lòng thử lại!");
+                    }
+                } catch (Exception ex) {
+                    error("Lỗi hệ thống: " + ex.getMessage());
+                } finally {
+                    btnReset.setEnabled(true);
+                    btnReset.setText("Đổi mật khẩu");
+                }
+            }
+        };
+        w.execute();
+    }
+
+    // =========================================================================
+    //  Helpers — UI builders
+    // =========================================================================
+
+    private JPanel stepPanel() {
+        JPanel p = new JPanel();
+        p.setBackground(Color.WHITE);
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setBorder(new EmptyBorder(36, 50, 28, 50));
+        return p;
+    }
+
+    /** Header block: title + subtitle */
+    private JPanel header(String title, String sub) {
+        JPanel h = new JPanel();
+        h.setOpaque(false);
+        h.setLayout(new BoxLayout(h, BoxLayout.Y_AXIS));
+
+        // Accent bar
+        JPanel bar = new JPanel();
+        bar.setBackground(BLUE);
+        bar.setMaximumSize(new Dimension(40, 4));
+        bar.setAlignmentX(LEFT_ALIGNMENT);
+        h.add(bar);
+        h.add(Box.createVerticalStrut(10));
+
+        JLabel lTitle = new JLabel(title);
+        lTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        lTitle.setForeground(NAVY);
+        lTitle.setAlignmentX(LEFT_ALIGNMENT);
+        h.add(lTitle);
+
+        JLabel lSub = new JLabel(sub);
+        lSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lSub.setForeground(GRAY_TXT);
+        lSub.setAlignmentX(LEFT_ALIGNMENT);
+        h.add(Box.createVerticalStrut(4));
+        h.add(lSub);
+        return h;
+    }
+
+    private JLabel fieldLabel(String text) {
+        JLabel l = new JLabel(text);
+        l.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         l.setForeground(GRAY_TXT);
         l.setAlignmentX(LEFT_ALIGNMENT);
+        return l;
     }
 
     private void styleField(JComponent f) {
@@ -187,7 +408,8 @@ public class ForgotPassword extends JFrame {
         f.setBackground(Color.WHITE);
     }
 
-    private void styleButton(JButton b) {
+    private JButton makeButton(String text) {
+        JButton b = new JButton(text);
         b.setBackground(BLUE);
         b.setForeground(Color.WHITE);
         b.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -199,108 +421,75 @@ public class ForgotPassword extends JFrame {
         b.setOpaque(true);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { b.setBackground(BLUE.darker()); }
-            public void mouseExited(MouseEvent e)  { b.setBackground(BLUE); }
+            Color orig = b.getBackground();
+            public void mouseEntered(MouseEvent e) { b.setBackground(orig.darker()); }
+            public void mouseExited(MouseEvent e)  { b.setBackground(orig); }
         });
+        return b;
     }
 
-    private void styleBackLink(JLabel l) {
-        l.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+    private JLabel backLink(String text, Runnable action) {
+        JLabel l = new JLabel("<html><u>" + text + "</u></html>");
+        l.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         l.setForeground(GRAY_TXT);
         l.setAlignmentX(LEFT_ALIGNMENT);
         l.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        l.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) { action.run(); }
+            public void mouseEntered(MouseEvent e) { l.setForeground(BLUE); }
+            public void mouseExited(MouseEvent e)  { l.setForeground(GRAY_TXT); }
+        });
+        return l;
     }
 
+    // ── Placeholder helpers ────────────────────────────────────────────────
+
     private void setPlaceholder(JTextField f, String ph) {
-        f.setText(ph);
-        f.setForeground(PH_COLOR);
+        f.setText(ph); f.setForeground(PH_COLOR);
         f.addFocusListener(new FocusAdapter() {
-            boolean showing = true;
+            boolean on = true;
             public void focusGained(FocusEvent e) {
-                if (showing) { f.setText(""); f.setForeground(Color.DARK_GRAY); showing = false; }
+                if (on) { f.setText(""); f.setForeground(Color.DARK_GRAY); on = false; }
             }
             public void focusLost(FocusEvent e) {
-                if (f.getText().isEmpty()) { f.setText(ph); f.setForeground(PH_COLOR); showing = true; }
+                if (f.getText().isEmpty()) { f.setText(ph); f.setForeground(PH_COLOR); on = true; }
             }
         });
     }
 
     private void setPasswordPlaceholder(JPasswordField f, String ph) {
-        f.setEchoChar((char) 0);
-        f.setText(ph);
-        f.setForeground(PH_COLOR);
+        f.setEchoChar((char) 0); f.setText(ph); f.setForeground(PH_COLOR);
         f.addFocusListener(new FocusAdapter() {
-            boolean showing = true;
+            boolean on = true;
             public void focusGained(FocusEvent e) {
-                if (showing) { f.setText(""); f.setForeground(Color.DARK_GRAY); f.setEchoChar('●'); showing = false; }
+                if (on) { f.setText(""); f.setForeground(Color.DARK_GRAY); f.setEchoChar('●'); on = false; }
             }
             public void focusLost(FocusEvent e) {
                 if (new String(f.getPassword()).isEmpty()) {
-                    f.setEchoChar((char) 0); f.setText(ph); f.setForeground(PH_COLOR); showing = true;
+                    f.setEchoChar((char) 0); f.setText(ph); f.setForeground(PH_COLOR); on = true;
                 }
             }
         });
     }
 
-    private String getFieldValue(JTextField f, String placeholder) {
-        String val = f.getText().trim();
-        return val.equals(placeholder) ? "" : val;
+    // ── Value helpers ─────────────────────────────────────────────────────
+
+    private String getField(JTextField f, String ph) {
+        String v = f.getText().trim();
+        return v.equals(ph) ? "" : v;
     }
 
-    private String getPasswordValue(JPasswordField f, String placeholder) {
-        String val = new String(f.getPassword()).trim();
-        return val.equals(placeholder) ? "" : val;
+    private String getPwd(JPasswordField f, String ph) {
+        String v = new String(f.getPassword()).trim();
+        return v.equals(ph) ? "" : v;
     }
 
-    private void addListeners() {
-        // Bước 1: xác minh email
-        btnNext.addActionListener(e -> {
-            String email = getFieldValue(txtEmail, PH_EMAIL);
-            if (email.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng nhập địa chỉ email!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
+    // ── Dialog shortcuts ──────────────────────────────────────────────────
 
-            foundUserId = controller.verifyEmail(email);
-            if (foundUserId == null) {
-                JOptionPane.showMessageDialog(this, "Email không tồn tại trong hệ thống!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            // Chuyển sang bước 2
-            cardLayout.show(pnlContent, "STEP2");
-            setSize(480, 460);
-        });
-
-        // Bước 2: đặt lại mật khẩu
-        btnReset.addActionListener(e -> {
-            String newPass  = getPasswordValue(txtNewPass,     PH_PASSWORD);
-            String confirm  = getPasswordValue(txtConfirmPass, PH_CONFIRM);
-
-            if (newPass.isEmpty() || confirm.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            if (!newPass.equals(confirm)) {
-                JOptionPane.showMessageDialog(this, "Mật khẩu xác nhận không khớp!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            boolean ok = controller.resetPassword(foundUserId, newPass);
-            if (ok) {
-                JOptionPane.showMessageDialog(this, "Đổi mật khẩu thành công! Vui lòng đăng nhập lại.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                dispose();
-            } else {
-                JOptionPane.showMessageDialog(this, "Đổi mật khẩu thất bại, vui lòng thử lại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-
-        // Quay lại đăng nhập
-        lblBackToLogin1.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) { dispose(); }
-        });
-        lblBackToLogin2.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) { dispose(); }
-        });
+    private void warn(String msg) {
+        JOptionPane.showMessageDialog(this, msg, "Thông báo", JOptionPane.WARNING_MESSAGE);
+    }
+    private void error(String msg) {
+        JOptionPane.showMessageDialog(this, msg, "Lỗi", JOptionPane.ERROR_MESSAGE);
     }
 }

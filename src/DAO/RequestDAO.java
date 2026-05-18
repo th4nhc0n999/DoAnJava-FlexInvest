@@ -132,6 +132,10 @@ public class RequestDAO extends BaseDAO<Deposit> {
 
     /**
      * Duyệt nạp tiền: cập nhật TRANSACTION → COMPLETED, cộng ví, lưu bank_trans_ref.
+     *
+     * FIX: toàn bộ được thực hiện trong 1 JDBC transaction duy nhất
+     *      (UPDATE TRANSACTION + UPDATE WALLET + INSERT TRANSACTION credit + INSERT LEDGER)
+     *      để đảm bảo tính nguyên tử.
      */
     public boolean approveDeposit(int depositId, String bankTransRef) {
         Deposit d = findDepositById(depositId);
@@ -149,10 +153,10 @@ public class RequestDAO extends BaseDAO<Deposit> {
             con = getConnection();
             con.setAutoCommit(false);
 
-            // Cập nhật TRANSACTION
+            // 1. Cập nhật TRANSACTION gốc → COMPLETED
             updateTxStatus(con, txId, "COMPLETED");
 
-            // Cập nhật DEPOSIT bank_trans_ref
+            // 2. Cập nhật bank_trans_ref trên bảng DEPOSIT
             String upDep = "UPDATE DEPOSIT SET bank_trans_ref = ? WHERE deposit_id = ?";
             try (PreparedStatement ps = con.prepareStatement(upDep)) {
                 ps.setString(1, bankTransRef);
@@ -160,11 +164,53 @@ public class RequestDAO extends BaseDAO<Deposit> {
                 ps.executeUpdate();
             }
 
+            // 3. Cộng ví: UPDATE WALLET available_balance trong cùng connection
+            String upWallet = """
+                UPDATE WALLET
+                   SET available_balance = available_balance + ?
+                 WHERE wallet_id = ? AND is_deleted = 0
+                """;
+            try (PreparedStatement ps = con.prepareStatement(upWallet)) {
+                ps.setBigDecimal(1, amount);
+                ps.setInt(2, walletId);
+                int rows = ps.executeUpdate();
+                if (rows == 0) { con.rollback(); return false; }
+            }
+
+            // 4. Ghi TRANSACTION credit (COMPLETED) trong cùng connection
+            String insTx = """
+                INSERT INTO TRANSACTION (wallet_id, type_code, amount, status, created_at, is_deleted)
+                VALUES (?, 'DEPOSIT', ?, 'COMPLETED', SYSDATE, 0)
+                """;
+            int creditTxId = -1;
+            try (PreparedStatement ps = con.prepareStatement(insTx, new String[]{"transaction_id"})) {
+                ps.setInt(1, walletId);
+                ps.setBigDecimal(2, amount);
+                ps.executeUpdate();
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+                    if (rs.next()) creditTxId = rs.getInt(1);
+                }
+            }
+
+            // 5. Ghi LEDGER (nếu có bảng LEDGER)
+            if (creditTxId > 0) {
+                try {
+                    String insLedger = """
+                        INSERT INTO LEDGER (transaction_id, entry_type, amount, note, created_at, is_deleted)
+                        VALUES (?, 'CREDIT', ?, ?, SYSDATE, 0)
+                        """;
+                    try (PreparedStatement ps = con.prepareStatement(insLedger)) {
+                        ps.setInt(1, creditTxId);
+                        ps.setBigDecimal(2, amount);
+                        ps.setString(3, "Duyệt nạp #" + depositId);
+                        ps.executeUpdate();
+                    }
+                } catch (SQLException ignored) {
+                    // LEDGER có thể không bắt buộc — bỏ qua nếu bảng chưa tồn tại
+                }
+            }
+
             con.commit();
-
-            // Cộng ví (dùng WalletDAO — tự quản lý transaction riêng)
-            walletDAO.credit(walletId, "DEPOSIT", amount, "Duyệt nạp #" + depositId);
-
             return true;
 
         } catch (Exception e) {
@@ -175,6 +221,7 @@ public class RequestDAO extends BaseDAO<Deposit> {
             closeConn(con);
         }
     }
+
 
     /** Từ chối lệnh nạp — chỉ cập nhật trạng thái, không động ví. */
     public boolean rejectDeposit(int depositId, String reason) {

@@ -43,7 +43,8 @@ public class EkycDAO {
     
     public List<Ekyc> Pending() {
         List<Ekyc> list = new ArrayList<>();
-        String sql = "SELECT * FROM EKYC WHERE VERIFIED_STATUS = 'PENDING'";
+        // FIX: thêm IS_DELETED = 0 để không lấy bản ghi đã xóa mềm
+        String sql = "SELECT * FROM EKYC WHERE VERIFIED_STATUS = 'PENDING' AND IS_DELETED = 0";
         try(Connection conn = ConnectionUtils.getMyConnection();
             PreparedStatement ps = conn.prepareStatement(sql);
             ResultSet rs = ps.executeQuery()) {
