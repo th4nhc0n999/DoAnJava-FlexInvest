@@ -1,7 +1,6 @@
 package View.staff;
 
 import Controller.SavingsProductController;
-import DAO.InvestmentDAO;
 import Model.AccountModel;
 import Model.SavingsProduct;
 
@@ -20,7 +19,6 @@ public class SavingsProductPanel extends JPanel {
 
     private final AccountModel account;
     private final SavingsProductController spController = new SavingsProductController();
-    private final InvestmentDAO invDAO = new InvestmentDAO();
 
     private DefaultTableModel tableModel;
     private JTable table;
@@ -200,7 +198,9 @@ public class SavingsProductPanel extends JPanel {
                     np.setStatus("ACTIVE");
                 }
 
-                boolean ok = p == null ? spController.createProduct(np) > 0 : spController.updateProduct(np);
+                boolean ok = p == null
+                    ? spController.createProduct(np) > 0
+                    : spController.updateProduct(np);
                 if (ok) {
                     loadData();
                     d.dispose();

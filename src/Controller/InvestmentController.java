@@ -549,25 +549,19 @@ public class InvestmentController {
 
     /** Lấy KYC APPROVED mới nhất của user (query trực tiếp). */
     private Ekyc getApprovedKyc(int userId) {
-        // EkycDAO hiện chỉ có Pending() — ta filter từ tất cả
-        // Trong thực tế nên thêm method getApprovedByUserId vào EkycDAO.
-        // Tạm thời dùng cách kiểm tra ngược: nếu KHÔNG pending → có thể approved.
-        // Đơn giản hoá: luôn return null để force approved check qua DB trực tiếp.
-        try {
-            var con = ConnectDB.ConnectionOracle.getOracleConnection();
-            var ps  = con.prepareStatement(
-                "SELECT * FROM EKYC WHERE USER_ID = ? AND VERIFIED_STATUS = 'APPROVED' " +
-                "AND IS_DELETED = 0 ORDER BY CREATED_AT DESC");
+        String sql = "SELECT * FROM EKYC WHERE USER_ID = ? AND VERIFIED_STATUS = 'APPROVED' " +
+                     "AND IS_DELETED = 0 ORDER BY CREATED_AT DESC";
+        try (var con = ConnectDB.ConnectionOracle.getOracleConnection();
+             var ps  = con.prepareStatement(sql)) {
             ps.setInt(1, userId);
-            var rs = ps.executeQuery();
-            if (rs.next()) {
-                Ekyc e = new Ekyc();
-                e.setUserId(userId);
-                e.setVerifiedStatus("APPROVED");
-                rs.close(); ps.close(); con.close();
-                return e;
+            try (var rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Ekyc e = new Ekyc();
+                    e.setUserId(userId);
+                    e.setVerifiedStatus("APPROVED");
+                    return e;
+                }
             }
-            rs.close(); ps.close(); con.close();
         } catch (Exception ex) {
             System.err.println("[getApprovedKyc] " + ex.getMessage());
         }

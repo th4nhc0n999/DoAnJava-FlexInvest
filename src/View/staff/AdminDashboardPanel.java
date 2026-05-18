@@ -120,8 +120,6 @@ public class AdminDashboardPanel extends JPanel {
         JScrollPane scroll = new JScrollPane(inner);
         scroll.setBorder(null);
         scroll.getViewport().setBackground(BG);
-
-        // Wrap scroll in a JPanel to satisfy return type
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setBackground(BG);
         wrapper.add(scroll, BorderLayout.CENTER);
